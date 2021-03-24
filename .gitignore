@@ -2,3 +2,4 @@ secret
 node_modules
 .env
 package-lock.json
+NOTES.txt

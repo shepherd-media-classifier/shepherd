@@ -6,7 +6,9 @@
   "scripts": {
     "start": "ts-node src/index.ts",
     "build": "tsc",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "preinstall": "docker-compose up --build -d",
+    "uninstall": "docker-compose down --remove-orphans",
+    "test": "mocha -r ts-node/register tests/**/*.spec.ts"
   },
   "keywords": [],
   "author": "Ros McMahon <ros@arweave.org>",
