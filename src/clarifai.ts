@@ -1,17 +1,18 @@
-const {ClarifaiStub, grpc} = require("clarifai-nodejs-grpc");
+import { logger } from "./utils/logger";
+
+const {ClarifaiStub, grpc} = require("clarifai-nodejs-grpc"); //no TS support - says there is in the repo
 
 const stub = ClarifaiStub.grpc();
 
-// This will be used by every Clarifai endpoint call.
 const metadata = new grpc.Metadata();
 
 if(!process.env.CLARIFAI_APP_KEY) throw new Error('process.env.CLARIFAI_APP_KEY is undefined')
 metadata.set("authorization", `Key ${process.env.CLARIFAI_APP_KEY}`)
 
 const modelNsfw = 'e9576d86d2004ed1a38ba0cf39ecb4b1'
-const modelGeneral = "aaa03c23b3724a16a56b629203edc62c"
+// const modelGeneral = "aaa03c23b3724a16a56b629203edc62c"
 
-export const checkImage = async (txid: string) => {
+export const checkImage = async (txid: string): Promise<Number> => {
 	return new Promise( (resolve, reject) => {
 		const url = `https://arweave.net/${txid}`
 	
@@ -23,23 +24,23 @@ export const checkImage = async (txid: string) => {
 			(err: any, response: any) => {
 
 				if (err) {
-					console.log("Error: " + err);
+					logger("Error: " + err);
 					reject(err)
 					return;
 				}
 				
 				const statusCode = response.status.code
 				if (statusCode !== 10000) {
-					console.log("Received failed status: " + response.status.description + "\t" + response.status.details);
-					reject(response.status.description + "\t" + response.status.details);
+					logger("Received failed status: " + response.status.description + "\t" + response.status.details);
+					reject(response.status.description);
 					return;
 				}
 
-				console.log(url)
-				console.log("Predicted concepts, with confidence values:")
+				logger(url)
+				logger("Predicted concepts, with confidence values:")
 				let nsfwValue = 0
 				for (const concept of response.outputs[0].data.concepts) {
-					console.log(concept.name + ": " + concept.value);
+					logger(concept.name + ": " + concept.value);
 					if(concept.name === 'nsfw'){
 						nsfwValue = concept.value
 						break;
@@ -56,8 +57,10 @@ export const checkImage = async (txid: string) => {
 export interface ICheckImagesResult {
 	[id: string]: Number
 }
-export const checksImages = async (txids: string[]): Promise<ICheckImagesResult> => {
+export const checkImages = async (txids: string[]): Promise<ICheckImagesResult> => {
 	
+	if(txids.length > 128) throw Error("Max 128 images at one time")
+
 	const inputs = txids.map(txid => {
 		return  {data: {image: {url: `https://arweave.net/${txid}`}}}
 	})
@@ -72,23 +75,25 @@ export const checksImages = async (txids: string[]): Promise<ICheckImagesResult>
 
 			(err: any, response: any) => {
 				if (err) {
-					console.log("Error: " + err);
+					logger("Error: " + err);
 					reject(err.code + ':' + err.message);
+					return;
 				}
 
 				const statusCode = response.status.code
 				if (statusCode !== 10000) {
-					console.log("Received failed status: " + response.status.description + "\t" + response.status.details);
-					reject(response.status);
+					logger("Received failed status: " + response.status.description + "\t" + response.status.details);
+					reject(response.status)
+					return;
 				}
 
 				let nsfwValues: ICheckImagesResult = {}
 				for (let index = 0; index < response.outputs.length; index++) {
 					const output = response.outputs[index];
 					
-					// console.log("Predicted concepts, with confidence values:")
+					// logger("Predicted concepts, with confidence values:")
 					for (const concept of output.data.concepts) {
-						// console.log(concept.name + ": " + concept.value)
+						// logger(concept.name + ": " + concept.value)
 						if(concept.name === 'nsfw'){
 							nsfwValues[txids[index]] = concept.value
 							break;

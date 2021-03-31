@@ -7,7 +7,7 @@ export default [
 	"Z7kRNROYn-hEg0r059PcJEWsd1xSCxsSM4LbYpMq2a8",
 	"82rEwAgYY4zTC9bNFE-EF2jnK8fKMMhQ6q-tNZ131xc",
 	"Cf5PBbxQ-wZxspEYZEsJO9yUuzCYnHW0-EKcuhP8ZLc",
-	"JKi55pMfW9gVKpa6fUH4vtPlR1wTxwd_kha3A_Ryy8I",
+	// "JKi55pMfW9gVKpa6fUH4vtPlR1wTxwd_kha3A_Ryy8I", //<= bad data
 	"0Dw2t_kwy1LlQVaVzmfK30ydhRl4qdn_Wahe_dlxS9w",
 	"AJtDbCfNQHreCcEEA8NcH18ekrQ1Ol9GZ_5SBFyCF7A",
 	"CFglSO-WUu9e3fji8I2-VrHTmKHXR5Z2dZbT-LHqSuY",
@@ -199,5 +199,5 @@ export default [
 	"W7x7isZAKD9mVbv52eZ2MlxrLHKq8Z5t0gYoE_PMTxA",
 	"0zJiQDaY-dYsGnjGzryqEwDsf2pxJIBe0uJydfWAIyw",
 	"49UulDxwC2aJ-uS__9XkN-k8nZ-h1X9KTtnOXBfkWCY",
-	
+
 ]

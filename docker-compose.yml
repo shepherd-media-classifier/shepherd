@@ -5,14 +5,14 @@ services:
     build: 
       context: ./postgres
       # dockerfile: Dockerfile
-    volumes: 
-      - ${DOCKER_POSTGRES_CUSTOM_MOUNT}:/var/lib/postgresql/data
-    # ports: 
-    #   - "5444:5432"
+    # volumes: 
+    #   - ${DOCKER_POSTGRES_CUSTOM_MOUNT}:/var/lib/postgresql/data
+    ports: 
+      - "5444:5432"
     environment: 
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${DOCKER_POSTGRES_PASSWORD}
       POSTGRES_DB: arblacklist
       PGDATA: /var/lib/postgresql/data/pgdata
     restart: always
-    network_mode: host
+    # network_mode: host

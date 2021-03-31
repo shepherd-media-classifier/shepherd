@@ -1,4 +1,4 @@
 FROM postgres
 
-ADD /tables/ /docker-entrypoint-initdb.d/tables/
+# ADD /tables/ /docker-entrypoint-initdb.d/tables/
 ADD deploy_schemas.sql /docker-entrypoint-initdb.d/
