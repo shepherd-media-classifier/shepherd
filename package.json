@@ -28,6 +28,7 @@
   "dependencies": {
     "ansi-colors": "^4.1.1",
     "ar-gql": "0.0.6",
+    "axios": "^0.21.1",
     "clarifai-nodejs-grpc": "^7.2.0",
     "dotenv": "^8.2.0",
     "express": "^4.17.1",

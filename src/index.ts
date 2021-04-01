@@ -5,31 +5,40 @@ import { getIds } from './scanner'
 import { logger } from './utils/logger'
 import dbConnection from './utils/db-connection'
 import { StateRecord } from './types'
+import axios from 'axios'
 /* start http server */
 // import './server'
 
+const TRAIL_BEHIND = 15
 
 const main = async()=> {
 	try {
 		const db = dbConnection()
 		let position = await db<StateRecord>('states').where({pname: 'scanner_position'})
 
-		let min = position[0].blocknumber
-		let max = min + 10000
-		let keepGoing = true
-		while(keepGoing){
+		const numOfBlocks = 50
+
+		let min = position[0].blocknumber + 1
+		let max = min + numOfBlocks - 1
+		let topBlock = 0
+
+		while(true){
+
+			// wait until we have enough blocks ahead
+			if(max + TRAIL_BEHIND >= topBlock){
+				topBlock = await pollForNewBlock(max + TRAIL_BEHIND)
+			}
+
 			const res = await getIds(min, max)
 			logger('images', res.images.length)
 			logger('videos', res.videos.length)
 			logger('other', res.textsAndUnsupported.length)
 
 			logger('scanner_position', max)
-			min += 10000
-			max += 10000
+			min += numOfBlocks
+			max += numOfBlocks 
 
-			if((res.images.length + res.videos.length + res.textsAndUnsupported.length) > 0){
-				keepGoing = false
-			}
+
 		}
 		/**
 		 * API Restrictions
@@ -54,3 +63,19 @@ const main = async()=> {
 }
 main()
 
+const topBlock = async () => Number((await axios.get('https://arweave.net/info')).data.height)
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
+const pollForNewBlock =  async (height: number) => {
+
+	while(true){
+
+		let h = await topBlock()
+		console.log('polling height', h)
+		if(h >= height){
+			return h;
+		}
+		await sleep(30000)
+	}
+}
