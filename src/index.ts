@@ -11,22 +11,57 @@ import axios from 'axios'
 
 const TRAIL_BEHIND = 15
 
+const getTopBlock = async () => Number((await axios.get('https://arweave.net/info')).data.height)
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
+const waitForNewBlock =  async (height: number) => {
+	while(true){
+		let h = await getTopBlock()
+		console.log('polling height', h)
+		if(h >= height){
+			return h; //stop waiting
+		}
+		await sleep(30000)
+	}
+}
+
 const main = async()=> {
 	try {
+		/**
+		 * numOfBlocks - to scan at once
+		 * very rough guide:
+		 * early weave this should be high: ~1000
+		 * mid weave about 100?
+		 * above ~400,000 <=> 657796: 50 appears optimal
+		 * keep pace once at the top: 1
+		 */
 		const db = dbConnection()
-		let position = await db<StateRecord>('states').where({pname: 'scanner_position'})
+		let position = (await db<StateRecord>('states').where({pname: 'scanner_position'}))[0].blocknumber
+		let height = await getTopBlock()
+		const initialHeight = height // we do not want to keep calling getTopBlock during initial catch up phase
 
-		const numOfBlocks = 50
+		const calcBulkBlocks = (position: number) => {
+			if(position < 150000) return 1000
+			if(position < 400000) return 100
+			return 50
+		}
+		
+		let numOfBlocks = calcBulkBlocks(position)
 
-		let min = position[0].blocknumber + 1
+		let min = position + 1
 		let max = min + numOfBlocks - 1
 		let topBlock = 0
 
 		while(true){
 
-			// wait until we have enough blocks ahead
-			if(max + TRAIL_BEHIND >= topBlock){
-				topBlock = await pollForNewBlock(max + TRAIL_BEHIND)
+			if((initialHeight - position) > 50){
+				logger('calcBulkBlocks(position)')
+				numOfBlocks = calcBulkBlocks(position)
+			} else if(max + TRAIL_BEHIND >= topBlock){ // wait until we have enough blocks ahead
+				logger('wait for new block')
+				numOfBlocks = 1
+				topBlock = await waitForNewBlock(max + TRAIL_BEHIND)
 			}
 
 			const res = await getIds(min, max)
@@ -63,19 +98,3 @@ const main = async()=> {
 }
 main()
 
-const topBlock = async () => Number((await axios.get('https://arweave.net/info')).data.height)
-
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
-
-const pollForNewBlock =  async (height: number) => {
-
-	while(true){
-
-		let h = await topBlock()
-		console.log('polling height', h)
-		if(h >= height){
-			return h;
-		}
-		await sleep(30000)
-	}
-}
