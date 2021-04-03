@@ -1,7 +1,7 @@
 require('dotenv').config() //first line of entrypoint
 import { checkImage, checkImages } from './clarifai'
 import col from 'ansi-colors'
-import { getIds } from './scanner'
+import { scanBlocks } from './scanner'
 import { logger } from './utils/logger'
 import dbConnection from './utils/db-connection'
 import { StateRecord } from './types'
@@ -33,17 +33,17 @@ const main = async()=> {
 		 * very rough guide:
 		 * early weave this should be high: ~1000
 		 * mid weave about 100?
-		 * above ~400,000 <=> 657796: 50 appears optimal
+		 * above ~350,000 <=> 657796: 50 appears ~optimal
 		 * keep pace once at the top: 1
 		 */
 		const db = dbConnection()
 		let position = (await db<StateRecord>('states').where({pname: 'scanner_position'}))[0].blocknumber
-		let height = await getTopBlock()
-		const initialHeight = height // we do not want to keep calling getTopBlock during initial catch up phase
+		let topBlock = await getTopBlock()
+		const initialHeight = topBlock // we do not want to keep calling getTopBlock during initial catch up phase
 
 		const calcBulkBlocks = (position: number) => {
 			if(position < 150000) return 1000
-			if(position < 400000) return 100
+			if(position < 350000) return 100
 			return 50
 		}
 		
@@ -51,28 +51,25 @@ const main = async()=> {
 
 		let min = position + 1
 		let max = min + numOfBlocks - 1
-		let topBlock = 0
 
 		while(true){
 
-			if((initialHeight - position) > 50){
-				logger('calcBulkBlocks(position)')
-				numOfBlocks = calcBulkBlocks(position)
+			if((initialHeight - max) > 50){
+				numOfBlocks = calcBulkBlocks(max)
 			} else if(max + TRAIL_BEHIND >= topBlock){ // wait until we have enough blocks ahead
-				logger('wait for new block')
 				numOfBlocks = 1
+				max = min
 				topBlock = await waitForNewBlock(max + TRAIL_BEHIND)
 			}
 
-			const res = await getIds(min, max)
+			const res = await scanBlocks(min, max)
 			logger('images', res.images.length)
 			logger('videos', res.videos.length)
 			logger('other', res.textsAndUnsupported.length)
 
 			logger('scanner_position', max)
-			min += numOfBlocks
-			max += numOfBlocks 
-
+			min = max + 1 //numOfBlocks
+			max = min + numOfBlocks - 1 
 
 		}
 		/**

@@ -16,7 +16,7 @@ interface IGetIdsResults {
 	textsAndUnsupported: TxScanned[]
 }
 
-export const getIds = async (minBlock: number, maxBlock: number): Promise<IGetIdsResults> => {
+export const scanBlocks = async (minBlock: number, maxBlock: number): Promise<IGetIdsResults> => {
 	try{
 
 		/* our general parametrized query */
@@ -82,14 +82,11 @@ export const getIds = async (minBlock: number, maxBlock: number): Promise<IGetId
 						logger('Duplicate key value violates unique constraint', txid, e.detail) //prob just a dataItem
 					} else if(e.code && Number(e.code) === 23502){
 						logger('Null value in column violates not-null constraint', txid, e.detail) //prob bad content-type
-
 					} else { 
 						if(e.code) logger(e.code)
 						throw e
 					}
 				}
-
-
 
 			}
 
@@ -98,7 +95,7 @@ export const getIds = async (minBlock: number, maxBlock: number): Promise<IGetId
 
 		/* get supported types metadata */
 
-		logger(`making requests of ${((maxBlock - minBlock) + 1)}`)
+		logger(`making 3 scans of ${((maxBlock - minBlock) + 1)} blocks..`)
 		const images = await getRecords(imageTypes)
 		const videos = await getRecords(videoTypes)
 		const textsAndUnsupported = await getRecords([...textTypes,...unsupportedTypes])
@@ -124,7 +121,7 @@ export const getIds = async (minBlock: number, maxBlock: number): Promise<IGetId
 /* This only gets called once in a blue moon */
 const getContentType = async (txid: string) => {
 
-	logger('Extra step retrieving Content-Type for', txid)
+	logger('grabbing missing Content-Type', txid)
 
 	const query = `query{ transactions(ids: ["${txid}"]){
 		edges{ node{ 
