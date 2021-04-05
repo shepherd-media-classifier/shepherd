@@ -1,12 +1,11 @@
-//TODO: scan txs per block, then can wait for new blocks
-//TODO: maybe wait about 15 minutes to give time for tx data to seed ?
-
 import * as Gql from 'ar-gql'
-import { imageTypes, textTypes, unsupportedTypes, videoTypes } from './constants'
-import { StateRecord, TxScanned, TxsRecord } from './types'
-import getDbConnection from './utils/db-connection'
-import { logger } from './utils/logger'
+import { imageTypes, textTypes, unsupportedTypes, videoTypes } from '../constants'
+import { StateRecord, TxScanned, TxsRecord } from '../types'
+import getDbConnection from '../utils/db-connection'
+import { logger } from '../utils/logger'
 import axios from 'axios'
+
+const prefix = 'scanner'
 
 const db = getDbConnection()
 
@@ -79,11 +78,11 @@ export const scanBlocks = async (minBlock: number, maxBlock: number): Promise<IG
 					const result = await db<TxsRecord>('txs').insert({txid, content_type, content_size})
 				}	catch(e){
 					if(e.code && Number(e.code) === 23505){
-						logger('Duplicate key value violates unique constraint', txid, e.detail) //prob just a dataItem
+						logger(prefix, 'Duplicate key value violates unique constraint', txid, e.detail) //prob just a dataItem
 					} else if(e.code && Number(e.code) === 23502){
-						logger('Null value in column violates not-null constraint', txid, e.detail) //prob bad content-type
+						logger(prefix, 'Null value in column violates not-null constraint', txid, e.detail) //prob bad content-type
 					} else { 
-						if(e.code) logger(e.code)
+						if(e.code) logger(prefix, e.code)
 						throw e
 					}
 				}
@@ -95,7 +94,7 @@ export const scanBlocks = async (minBlock: number, maxBlock: number): Promise<IG
 
 		/* get supported types metadata */
 
-		logger(`making 3 scans of ${((maxBlock - minBlock) + 1)} blocks..`)
+		logger(prefix, `making three scans of ${((maxBlock - minBlock) + 1)} blocks..`)
 		const images = await getRecords(imageTypes)
 		const videos = await getRecords(videoTypes)
 		const textsAndUnsupported = await getRecords([...textTypes,...unsupportedTypes])
@@ -112,16 +111,16 @@ export const scanBlocks = async (minBlock: number, maxBlock: number): Promise<IG
 		}
 
 	} catch(e){
-		logger(e.name, ':', e.message)
+		logger(prefix, e.name, ':', e.message)
 		e.toJSON && logger(e.toJSON())
-		throw new Error("Error in getIds. See above.")
+		throw new Error("Error in scanBlocks. See above.")
 	}
 }
 
 /* This only gets called once in a blue moon */
 const getContentType = async (txid: string) => {
 
-	logger('grabbing missing Content-Type', txid)
+	logger(prefix, 'grabbing missing Content-Type', txid)
 
 	const query = `query{ transactions(ids: ["${txid}"]){
 		edges{ node{ 
