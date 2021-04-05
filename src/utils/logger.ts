@@ -12,7 +12,7 @@ export const logger = (...args: any[]) => {
 	console.log(col.blue(prefix), ...args)
 	fs.appendFile(
 		'server-logs.log', 
-		"\"" + new Date().toUTCString() + '\"\t,' + prefix + ',' + args.join(',') + EOL,
+		"\"" + new Date().toUTCString() + '\",' + prefix + ',' + args.join(',') + EOL,
 		()=>{}
 	)
 }
