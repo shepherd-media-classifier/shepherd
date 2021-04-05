@@ -63,11 +63,13 @@ export const scanner = async()=> {
 			}
 
 			const res = await scanBlocks(min, max)
-			logger(prefix, 'images', res.images.length)
-			logger(prefix, 'videos', res.videos.length)
-			logger(prefix, 'other', res.textsAndUnsupported.length)
+			logger(prefix, 
+				'images', res.images.length, 
+				'videos', res.videos.length, 
+				'other', res.textsAndUnsupported.length,
+				'scanner_position', max,
+			)
 
-			logger(prefix, 'scanner_position', max)
 			min = max + 1 //numOfBlocks
 			max = min + numOfBlocks - 1 
 
@@ -76,5 +78,4 @@ export const scanner = async()=> {
 		logger(prefix, 'Error in scanner!\t', e.name, ':', e.message)
 	}
 }
-// scanner()
 
