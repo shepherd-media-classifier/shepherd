@@ -5,13 +5,14 @@ GRANT ALL PRIVILEGES ON DATABASE arblacklist TO dbowner;
 -- \i '/docker-entrypoint-initdb.d/tables/txs.sql'
 
 CREATE TABLE txs (
-	txid CHARACTER(43) NOT NULL PRIMARY KEY,
+	id SERIAL PRIMARY KEY,
+	txid CHARACTER(43) UNIQUE NOT NULL,
 	content_type TEXT NOT NULL,
 	content_size INTEGER NOT NULL,
 	flagged BOOLEAN,
 	clarifai_valid_data BOOLEAN,
 	clarifai_nsfw real,
-	clarifai_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_DATE,
+	clarifai_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 	CONSTRAINT cc_id CHECK ((char_length(txid) = 43))
 );
 
