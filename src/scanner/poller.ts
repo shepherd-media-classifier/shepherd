@@ -53,27 +53,32 @@ export const scanner = async()=> {
 		let max = min + numOfBlocks - 1
 
 		while(true){
+			try {
 
-			if((initialHeight - max) > 50){
-				numOfBlocks = calcBulkBlocks(max)
-			} else if(max + TRAIL_BEHIND >= topBlock){ // wait until we have enough blocks ahead
-				numOfBlocks = 1
-				max = min
-				topBlock = await waitForNewBlock(max + TRAIL_BEHIND)
+				if((initialHeight - max) > 50){
+					numOfBlocks = calcBulkBlocks(max)
+				} else if(max + TRAIL_BEHIND >= topBlock){ // wait until we have enough blocks ahead
+					numOfBlocks = 1
+					max = min
+					topBlock = await waitForNewBlock(max + TRAIL_BEHIND)
+				}
+
+				const res = await scanBlocks(min, max)
+				logger(prefix, 
+					'images', res.images.length, 
+					'videos', res.videos.length, 
+					'other', res.textsAndUnsupported.length,
+					'scanner_position', max,
+				)
+
+				min = max + 1 
+				max = min + numOfBlocks - 1
+
+			} catch (e) {
+				logger(prefix, 'Error! Scanner fell over. Waiting 30 seconds to try again.')
+				await sleep(30000)
 			}
-
-			const res = await scanBlocks(min, max)
-			logger(prefix, 
-				'images', res.images.length, 
-				'videos', res.videos.length, 
-				'other', res.textsAndUnsupported.length,
-				'scanner_position', max,
-			)
-
-			min = max + 1 //numOfBlocks
-			max = min + numOfBlocks - 1 
-
-		}
+		}///end while(true)
 	} catch (e) {
 		logger(prefix, 'Error in scanner!\t', e.name, ':', e.message)
 	}
