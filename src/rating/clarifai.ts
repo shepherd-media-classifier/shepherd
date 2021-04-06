@@ -1,4 +1,4 @@
-import { logger } from "./utils/logger";
+import { logger } from "../utils/logger";
 
 const {ClarifaiStub, grpc} = require("clarifai-nodejs-grpc"); //no TS support - says there is in the repo
 
@@ -18,7 +18,12 @@ export const checkImage = async (txid: string): Promise<Number> => {
 	
 		stub.PostModelOutputs({
 				model_id: modelNsfw,
-				inputs: [{data: {image: {url}}}]
+				inputs: [
+					{
+						// id: txid,
+						data: {image: {url}}
+					}
+				]
 			},
 			metadata,
 			(err: any, response: any) => {
@@ -32,7 +37,7 @@ export const checkImage = async (txid: string): Promise<Number> => {
 				const statusCode = response.status.code
 				if (statusCode !== 10000) {
 					logger("Received failed status: " + response.status.description + "\t" + response.status.details);
-					reject(response.status.description);
+					reject(response.status);
 					return;
 				}
 

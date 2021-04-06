@@ -1,5 +1,5 @@
 require('dotenv').config() //first line of entrypoint
-import { checkImage, checkImages } from './clarifai'
+import { checkImage, checkImages } from './rating/clarifai'
 import col from 'ansi-colors'
 import { logger } from './utils/logger'
 import { scanner } from './scanner/poller'
