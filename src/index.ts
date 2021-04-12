@@ -1,8 +1,10 @@
 require('dotenv').config() //first line of entrypoint
-import { checkImage, checkImages } from './rating/clarifai'
 import col from 'ansi-colors'
 import { logger } from './utils/logger'
 import { scanner } from './scanner/poller'
+import { checkImage, checkImageTxid } from './rating/image-rating'
+
+
 /* start http server */
 // import './server'
 
@@ -10,26 +12,23 @@ import { scanner } from './scanner/poller'
 
 const main = async()=> {
 	try {
-		scanner() //do not await
+		// scanner() //do not await
+		
 
 		
-		/**
-		 * API Restrictions
-		 * - 128 is the maximum number of images that can be sent at once
-		 * - Each image should be less than 20MB
-		 * - Format restrictions: https://docs.clarifai.com/api-guide/data/supported-formats
-		 * 
-		 */
+		const txids: string[] = require('../tests/image-txids').default
+		console.log(txids.length)
 
-	
-		// let r1 = await checkImage(txids[0])
-		// logger(r1)
-	
-		// let r2 = await checkImages(txids)
-		// logger(r2)
+		// for (const txid of txids) {
+		// 	await checkImageTxid(txid)
+		// }
+
+		await Promise.all(txids.map(txid => checkImageTxid(txid)))
+
+
+		
 		
 		console.log(col.green('finished main :-)'))
-
 	} catch (e) {
 		logger('Error in main!\t', e.name, ':', e.message)
 	}

@@ -26,6 +26,7 @@
     "typescript": "^4.2.3"
   },
   "dependencies": {
+    "@tensorflow/tfjs-node": "^3.3.0",
     "ansi-colors": "^4.1.1",
     "ar-gql": "0.0.6",
     "axios": "^0.21.1",
@@ -34,6 +35,7 @@
     "express": "^4.17.1",
     "knex": "^0.95.2",
     "knex-utils": "^4.1.9",
+    "nsfwjs": "^2.4.0",
     "pg": "^8.5.1"
   }
 }
