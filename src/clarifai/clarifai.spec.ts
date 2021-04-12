@@ -1,9 +1,9 @@
 require('dotenv').config()
-import { checkImage,  } from '../src/rating/clarifai-images'
+import { checkImage,  } from './clarifai-images'
 import { expect } from 'chai'
 import sinon from 'sinon'
 
-import txids from './image-txids'
+import txids from '../../tests/image-txids'
 
 
 describe('clarifai module test', ()=> {
