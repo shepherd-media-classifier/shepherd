@@ -1,6 +1,7 @@
 require('dotenv').config()
-import { checkImage, checkImages } from '../src/rating/clarifai'
+import { checkImage,  } from '../src/rating/clarifai-images'
 import { expect } from 'chai'
+import sinon from 'sinon'
 
 import txids from './image-txids'
 
@@ -9,7 +10,23 @@ describe('clarifai module test', ()=> {
 
 	const badImageDataId = "JKi55pMfW9gVKpa6fUH4vtPlR1wTxwd_kha3A_Ryy8I"
 
-	it('checkImage processes 1 image and gets valid results', async()=> {
+	afterEach(() => {
+		sinon.restore()
+	})
+
+	// it('checkImage processes 1 image and gets valid results', async()=> {
+
+	// 	console.log(txids[1])
+
+	// 	let result = await checkImage(txids[1])
+
+	// 	console.log(result)
+
+	// 	expect(result).to.greaterThan(0).and.lessThan(1)
+	// 	expect(result).equal(0.007969954051077366)
+	// }).timeout(20000)
+
+	it('check mockCheckImage works for our unit test', async()=> {
 
 		console.log(txids[1])
 
@@ -18,7 +35,7 @@ describe('clarifai module test', ()=> {
 		console.log(result)
 
 		expect(result).to.greaterThan(0).and.lessThan(1)
-		expect(result).equal(0.00012133860582252964)
+		expect(result).equal(0.007969954051077366)
 	}).timeout(20000)
 
 	// it('checkImage handles bad image data', async()=> {
