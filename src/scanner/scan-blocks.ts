@@ -101,7 +101,7 @@ export const scanBlocks = async (minBlock: number, maxBlock: number): Promise<IG
 
 		const res = await db<StateRecord>('states')
 			.where({pname: 'scanner_position'})
-			.update({blocknumber: maxBlock})
+			.update({value: maxBlock})
 
 
 		return {

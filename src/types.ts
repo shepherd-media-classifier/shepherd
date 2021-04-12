@@ -1,6 +1,7 @@
 /**
  * CREATE TABLE txs (
- *	txid CHARACTER(43) NOT NULL PRIMARY KEY,
+ *  id SERIAL PRIMARY KEY,
+ *	txid CHARACTER(43) UNIQUE NOT NULL,
  *	content_type TEXT NOT NULL,
  *	content_size INTEGER NOT NULL,
  *	flagged BOOLEAN,
@@ -17,6 +18,7 @@ export interface TxScanned {
 	content_size: number
 }
 export interface TxsRecord extends TxScanned {
+	readonly id: number
 	flagged: boolean
 	clarifai_valid_data: boolean
 	clarifai_nsfw: number
@@ -38,5 +40,5 @@ export interface TxsRecord extends TxScanned {
 
 export interface StateRecord {
 	pname: 'scanner_position' | 'rating_position' | (string & {}) //nice hack for intellisense
-	blocknumber: number
+	value: number
 }

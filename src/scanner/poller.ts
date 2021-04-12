@@ -35,7 +35,7 @@ export const scanner = async()=> {
 		 * keep pace once at the top: 1
 		 */
 		const db = dbConnection()
-		let position = (await db<StateRecord>('states').where({pname: 'scanner_position'}))[0].blocknumber
+		let position = (await db<StateRecord>('states').where({pname: 'scanner_position'}))[0].value
 		let topBlock = await getTopBlock()
 		const initialHeight = topBlock // we do not want to keep calling getTopBlock during initial catch up phase
 
