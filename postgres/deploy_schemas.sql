@@ -21,7 +21,7 @@ ALTER TABLE txs OWNER TO dbowner;
 CREATE TABLE states (
 	id SERIAL PRIMARY KEY,
 	pname TEXT NOT NULL,
-	blocknumber INT NOT NULL
+	value INT NOT NULL
 );
 
 INSERT INTO states(pname, blocknumber) 

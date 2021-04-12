@@ -40,5 +40,5 @@ export interface TxsRecord extends TxScanned {
 
 export interface StateRecord {
 	pname: 'scanner_position' | 'rating_position' | (string & {}) //nice hack for intellisense
-	value: number
+	value: number //blocknumber is a bad name
 }
