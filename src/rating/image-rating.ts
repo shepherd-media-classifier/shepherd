@@ -1,8 +1,20 @@
+/**
+ * nsfwjs rating system:
+ * 
+ * drawings - safe for work drawings (including anime)
+ * neutral - safe for work neutral images
+ * sexy - sexually explicit images, not pornography
+ * hentai - hentai and pornographic drawings
+ * porn - pornographic images, sexual acts
+ * 
+ */
+
 import { logger } from '../utils/logger'
 import axios from 'axios'
 
 import * as tf from '@tensorflow/tfjs-node'
 import * as nsfw from 'nsfwjs'
+import {  } from 'node:os'
 
 //static everything to keep that model
 export class NsfwTools {
@@ -42,7 +54,16 @@ export class NsfwTools {
 			
 			const res = await NsfwTools.checkImage(pic.data)
 	
-			console.log(url, res)
+			console.log(
+				url, 
+				res[0].className, res[0].probability.toFixed(2),
+				res[1].className, res[1].probability.toFixed(2),
+				res[2].className, res[2].probability.toFixed(2),
+				res[3].className, res[3].probability.toFixed(2),
+				res[4].className, res[4].probability.toFixed(2),
+			)
+
+			//sexy+porn+hentai > 50 => nsfw
 	
 			//TODO: process results
 

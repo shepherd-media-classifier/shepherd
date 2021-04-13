@@ -10,9 +10,13 @@ CREATE TABLE txs (
 	content_type TEXT NOT NULL,
 	content_size INTEGER NOT NULL,
 	flagged BOOLEAN,
-	clarifai_valid_data BOOLEAN,
-	clarifai_nsfw real,
-	clarifai_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+	valid_data BOOLEAN,
+	nsfw_porn real,
+	nsfw_sexy real,
+	nsfw_hentai real,
+	nsfw_neutral real,
+	nsfw_drawings real,
+	last_update_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 	CONSTRAINT cc_id CHECK ((char_length(txid) = 43))
 );
 

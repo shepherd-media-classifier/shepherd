@@ -1,15 +1,19 @@
 /**
- * CREATE TABLE txs (
- *  id SERIAL PRIMARY KEY,
- *	txid CHARACTER(43) UNIQUE NOT NULL,
- *	content_type TEXT NOT NULL,
- *	content_size INTEGER NOT NULL,
- *	flagged BOOLEAN,
- *	clarifai_valid_data BOOLEAN,
- *	clarifai_nsfw real,
- *	clarifai_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_DATE,
- *	CONSTRAINT cc_id CHECK ((char_length(id) = 43))
- * );
+CREATE TABLE txs (
+	id SERIAL PRIMARY KEY,
+	txid CHARACTER(43) UNIQUE NOT NULL,
+	content_type TEXT NOT NULL,
+	content_size INTEGER NOT NULL,
+	flagged BOOLEAN,
+	valid_data BOOLEAN,
+	nsfw_porn real,
+	nsfw_sexy real,
+	nsfw_hentai real,
+	nsfw_neutral real,
+	nsfw_drawings real,
+	last_update_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+	CONSTRAINT cc_id CHECK ((char_length(txid) = 43))
+);
  */
 
 export interface TxScanned {
@@ -20,22 +24,27 @@ export interface TxScanned {
 export interface TxsRecord extends TxScanned {
 	readonly id: number
 	flagged: boolean
-	clarifai_valid_data: boolean
-	clarifai_nsfw: number
-	clarifai_date: Date
+	valid_data: boolean
+
+	nsfw_porn: number
+	nsfw_sexy: number
+	nsfw_hentai: number
+	nsfw_neutral: number
+	nsfw_drawings: number
+
+	last_update_date: Date
 }
 
 /**
- *	CREATE TABLE states (
- *		id SERIAL PRIMARY KEY,
- *		pname TEXT NOT NULL,
- *		blocknumber INT NOT NULL
- *	);
- *
- *	 INSERT INTO states(pname, blocknumber) 
- *	 VALUES 
- *		 ('scanner_position', 0),
- *		 ('rating_position', 0);
+ CREATE TABLE states (
+ 	id SERIAL PRIMARY KEY,
+ 	pname TEXT NOT NULL,
+ 	blocknumber INT NOT NULL
+ );
+   INSERT INTO states(pname, blocknumber) 
+  VALUES 
+ 	 ('scanner_position', 0),
+ 	 ('rating_position', 0);
  */
 
 export interface StateRecord {
