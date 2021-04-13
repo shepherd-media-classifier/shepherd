@@ -2,7 +2,7 @@ require('dotenv').config() //first line of entrypoint
 import col from 'ansi-colors'
 import { logger } from './utils/logger'
 import { scanner } from './scanner/poller'
-import { checkImage, checkImageTxid } from './rating/image-rating'
+import { NsfwTools } from './rating/image-rating'
 
 
 /* start http server */
@@ -14,7 +14,6 @@ const main = async()=> {
 	try {
 		// scanner() //do not await
 		
-
 		
 		const txids: string[] = require('../tests/image-txids').default
 		console.log(txids.length)
@@ -23,7 +22,9 @@ const main = async()=> {
 		// 	await checkImageTxid(txid)
 		// }
 
-		await Promise.all(txids.map(txid => checkImageTxid(txid)))
+		await NsfwTools.loadModel()
+		
+		await Promise.all(txids.map(txid => NsfwTools.checkImageTxid(txid)))
 
 
 		
