@@ -3,6 +3,7 @@ import col from 'ansi-colors'
 import { logger } from './utils/logger'
 import { scanner } from './scanner/poller'
 import { NsfwTools } from './rating/image-rating'
+import { rater } from './rating/feeder'
 
 
 /* start http server */
@@ -12,19 +13,20 @@ import { NsfwTools } from './rating/image-rating'
 
 const main = async()=> {
 	try {
-		// scanner() //do not await
+		scanner() //do not await
+		rater() 
 		
 		
-		const txids: string[] = require('../tests/image-txids').default
-		console.log(txids.length)
+		// const rawids: string[] = require('../tests/image-txids').default
+		// const txids = rawids.slice(1,2)
+		// console.log(txids.length)
 
-		// for (const txid of txids) {
-		// 	await checkImageTxid(txid)
-		// }
-
-		await NsfwTools.loadModel()
+		// await NsfwTools.loadModel()
 		
-		await Promise.all(txids.map(txid => NsfwTools.checkImageTxid(txid)))
+		// NsfwTools.checkImageTxid('xswu7ZO5BL-hHTkI_K6Fn6RHKxuK9W8Ijvm-j25Bj4k')
+
+		// await Promise.all(txids.map(txid => NsfwTools.checkImageTxid(txid)))
+
 
 
 		

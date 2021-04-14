@@ -11,10 +11,14 @@
 
 import { logger } from '../utils/logger'
 import axios from 'axios'
-
 import * as tf from '@tensorflow/tfjs-node'
 import * as nsfw from 'nsfwjs'
-import {  } from 'node:os'
+import getDbConnection from '../utils/db-connection'
+import { TxRecord } from '../types'
+
+const prefix = 'rating'
+
+const db = getDbConnection()
 
 //static everything to keep that model
 export class NsfwTools {
@@ -28,7 +32,7 @@ export class NsfwTools {
 			return NsfwTools._model
 		}
 
-		logger('loading model once')
+		logger(prefix, 'loading model once')
 
 		NsfwTools._model = await nsfw.load('file://src/model/', {size: 299})
 		return NsfwTools._model
@@ -47,32 +51,64 @@ export class NsfwTools {
 	}
 
 	static checkImageUrl = async(url: string)=> {
+
+		const pic = await axios.get(url, {
+			responseType: 'arraybuffer',
+		})
+		
+		return NsfwTools.checkImage(pic.data)
+	}
+
+	static checkImageTxid = async(txid: string)=> {
+
+		const url = `https://arweave.net/${txid}`
+		
 		try {
-			const pic = await axios.get(url, {
-				responseType: 'arraybuffer',
+			
+			const predictions = await NsfwTools.checkImageUrl(url)
+			
+			//make this data easier to work with 
+			// let scores: { [name in string ]: number} = {}
+			type Scores = { [name in 'Drawing' | 'Hentai' | 'Neutral' | 'Porn' | 'Sexy' ]: number}
+			let scores: Scores = {Drawing: 0,	Hentai: 0,	Neutral: 0,	Porn: 0,	Sexy: 0}
+			// let scores: Record<'Drawing' | 'Hentai' | 'Neutral' | 'Porn' | 'Sexy', number> = {}
+			
+			for (const prediction of predictions) {
+				scores[prediction.className] = prediction.probability
+			}
+			
+			//calculate overall score. sexy+porn+hentai > 0.5 => flagged
+			let sum = scores.Porn + scores.Sexy + scores.Hentai 
+			const flagged = (sum > 0.5)
+	
+			logger(prefix,
+				url, 
+				flagged,
+				JSON.stringify(scores),
+			)
+			
+			await db<TxRecord>('txs').where({txid: txid}).update({
+				flagged,
+				valid_data: true,
+				
+				nsfw_drawings: scores.Drawing,
+				nsfw_hentai: scores.Hentai,
+				nsfw_neutral: scores.Neutral,
+				nsfw_porn: scores.Porn,
+				nsfw_sexy: scores.Sexy,
+				
+				last_update_date: new Date()
 			})
 			
-			const res = await NsfwTools.checkImage(pic.data)
-	
-			console.log(
-				url, 
-				res[0].className, res[0].probability.toFixed(2),
-				res[1].className, res[1].probability.toFixed(2),
-				res[2].className, res[2].probability.toFixed(2),
-				res[3].className, res[3].probability.toFixed(2),
-				res[4].className, res[4].probability.toFixed(2),
-			)
+			
 
-			//sexy+porn+hentai > 50 => nsfw
-	
-			//TODO: process results
 
 		} catch (e) {
-			logger('Error checking', url, e.name, ':', e.message)
+			logger(prefix, 'Error processing', url, e.name, ':', e.message)
+			console.log(e)
 		}
 	}
 
-	static checkImageTxid = async(txid: string)=> NsfwTools.checkImageUrl(`https://arweave.net/${txid}`)
 
 }
 
