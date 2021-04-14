@@ -80,7 +80,8 @@ export const scanBlocks = async (minBlock: number, maxBlock: number): Promise<IG
 					if(e.code && Number(e.code) === 23505){
 						logger(prefix, 'Duplicate key value violates unique constraint', txid, e.detail) //prob just a dataItem
 					} else if(e.code && Number(e.code) === 23502){
-						logger(prefix, 'Null value in column violates not-null constraint', txid, e.detail) //prob bad content-type
+						logger(prefix, 'Null value in column violates not-null constraint', txid, e.detail) 
+						throw e
 					} else { 
 						if(e.code) logger(prefix, e.code)
 						throw e
