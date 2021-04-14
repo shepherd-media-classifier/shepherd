@@ -22,6 +22,7 @@ export const videoTypes = [
 	"video/mp2t",
 	"video/mp4",
 	"video/mpeg",
+	"video/ogg",
 	"video/quicktime",
 	"video/webm",
 	"video/x-flv",
@@ -31,10 +32,7 @@ export const videoTypes = [
 ]
 
 // maybe do not run any of these through clarifai
-export const textTypes = [
+export const otherTypes = [
 	"text/plain",
-]
-export const unsupportedTypes = [
-	"video/ogg",
 	"application/pdf",
 ]

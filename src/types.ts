@@ -21,7 +21,7 @@ export interface TxScanned {
 	content_type: string
 	content_size: number
 }
-export interface TxsRecord extends TxScanned {
+export interface TxRecord extends TxScanned {
 	readonly id: number
 	flagged: boolean
 	valid_data: boolean

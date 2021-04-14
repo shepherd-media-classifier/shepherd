@@ -1,6 +1,6 @@
 import * as Gql from 'ar-gql'
-import { imageTypes, textTypes, unsupportedTypes, videoTypes } from '../constants'
-import { StateRecord, TxScanned, TxsRecord } from '../types'
+import { imageTypes, otherTypes, videoTypes } from '../constants'
+import { StateRecord, TxScanned } from '../types'
 import getDbConnection from '../utils/db-connection'
 import { logger } from '../utils/logger'
 import axios from 'axios'
@@ -12,7 +12,7 @@ const db = getDbConnection()
 interface IGetIdsResults {
 	images: TxScanned[]
 	videos: TxScanned[]
-	textsAndUnsupported: TxScanned[]
+	others: TxScanned[]
 }
 
 export const scanBlocks = async (minBlock: number, maxBlock: number): Promise<IGetIdsResults> => {
@@ -75,7 +75,7 @@ export const scanBlocks = async (minBlock: number, maxBlock: number): Promise<IG
 				})
 
 				try{
-					const result = await db<TxsRecord>('txs').insert({txid, content_type, content_size})
+					const result = await db<TxScanned>('txs').insert({txid, content_type, content_size})
 				}	catch(e){
 					if(e.code && Number(e.code) === 23505){
 						logger(prefix, 'Duplicate key value violates unique constraint', txid, e.detail) //prob just a dataItem
@@ -98,9 +98,9 @@ export const scanBlocks = async (minBlock: number, maxBlock: number): Promise<IG
 		logger(prefix, `making three scans of ${((maxBlock - minBlock) + 1)} blocks..`)
 		const images = await getRecords(imageTypes)
 		const videos = await getRecords(videoTypes)
-		const textsAndUnsupported = await getRecords([...textTypes,...unsupportedTypes])
+		const others = await getRecords(otherTypes)
 
-		const res = await db<StateRecord>('states')
+		await db<StateRecord>('states')
 			.where({pname: 'scanner_position'})
 			.update({value: maxBlock})
 
@@ -108,7 +108,7 @@ export const scanBlocks = async (minBlock: number, maxBlock: number): Promise<IG
 		return {
 			images,
 			videos,
-			textsAndUnsupported,
+			others,
 		}
 
 	} catch(e){

@@ -4,8 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "ts-node src/index.ts",
-    "start:nowarn": "cross-env TF_CPP_MIN_LOG_LEVEL=2 ts-node src/index.ts",
+    "start:tfwarn": "ts-node src/index.ts",
+    "start": "cross-env TF_CPP_MIN_LOG_LEVEL=2 ts-node src/index.ts",
     "build": "tsc",
     "preinstall": "docker-compose up --build -d",
     "uninstall": "docker-compose down --remove-orphans",

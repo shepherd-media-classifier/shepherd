@@ -67,7 +67,7 @@ export const scanner = async()=> {
 				logger(prefix, 
 					'images', res.images.length, 
 					'videos', res.videos.length, 
-					'other', res.textsAndUnsupported.length,
+					'others', res.others.length,
 					'scanner_position', max,
 				)
 
