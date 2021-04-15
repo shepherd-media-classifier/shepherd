@@ -5,7 +5,7 @@
   "main": "build/index.js",
   "types": "build/index.d.ts",
   "scripts": {
-    "start:prod": "cross-env NODE_ENV=production ts-node src/index.ts",
+    "start:prod": "cross-env NODE_ENV=production TF_CPP_MIN_LOG_LEVEL=2 ts-node src/index.ts",
     "start": "cross-env TF_CPP_MIN_LOG_LEVEL=2 ts-node src/index.ts",
     "build": "tsc -p tsconfig.build.json",
     "preinstall": "docker-compose up --build -d",
