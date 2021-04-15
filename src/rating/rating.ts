@@ -51,7 +51,7 @@ try {
 	while(true){
 
 		let batch = records.splice(0, maxImages)
-		console.log('batch size', batch.length)
+		console.log(`Rating ${batch.length} of ${records.length} images`)
 
 		await Promise.all(batch.map(record => {
 			logger(prefix, 'processing', record.txid, record.content_type, record.content_size)
