@@ -82,7 +82,7 @@ export class NsfwTools {
 			const flagged = (sum > 0.5)
 	
 			logger(prefix,
-				url, 
+				url + ' ', 
 				flagged,
 				JSON.stringify(scores),
 			)
@@ -122,7 +122,7 @@ export class NsfwTools {
 					last_update_date: new Date(),
 				})
 			}else{
-				
+
 				logger(prefix, 'Error processing', url, e.name, ':', e.message)
 				console.log(e)
 			}
