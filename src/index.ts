@@ -3,7 +3,7 @@ import col from 'ansi-colors'
 import { logger } from './utils/logger'
 import { scanner } from './scanner/poller'
 import { NsfwTools } from './rating/image-rating'
-import { rater } from './rating/feeder'
+import { rater } from './rating/rating'
 
 
 /* start http server */

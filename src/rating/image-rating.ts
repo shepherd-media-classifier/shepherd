@@ -7,6 +7,7 @@
  * hentai - hentai and pornographic drawings
  * porn - pornographic images, sexual acts
  * 
+ * Supported formats: BMP, JPEG, PNG, or GIF
  */
 
 import { logger } from '../utils/logger'
@@ -59,7 +60,7 @@ export class NsfwTools {
 		return NsfwTools.checkImage(pic.data)
 	}
 
-	static checkImageTxid = async(txid: string)=> {
+	static checkImageTxid = async(txid: string, contentType: string)=> {
 
 		const url = `https://arweave.net/${txid}`
 		
@@ -68,10 +69,9 @@ export class NsfwTools {
 			const predictions = await NsfwTools.checkImageUrl(url)
 			
 			//make this data easier to work with 
-			// let scores: { [name in string ]: number} = {}
 			type Scores = { [name in 'Drawing' | 'Hentai' | 'Neutral' | 'Porn' | 'Sexy' ]: number}
+			// type Scores = Record<'Drawing' | 'Hentai' | 'Neutral' | 'Porn' | 'Sexy', number> 
 			let scores: Scores = {Drawing: 0,	Hentai: 0,	Neutral: 0,	Porn: 0,	Sexy: 0}
-			// let scores: Record<'Drawing' | 'Hentai' | 'Neutral' | 'Porn' | 'Sexy', number> = {}
 			
 			for (const prediction of predictions) {
 				scores[prediction.className] = prediction.probability
@@ -97,19 +97,37 @@ export class NsfwTools {
 				nsfw_porn: scores.Porn,
 				nsfw_sexy: scores.Sexy,
 				
-				last_update_date: new Date()
+				last_update_date: new Date(),
 			})
-			
-			
 
 
 		} catch (e) {
-			logger(prefix, 'Error processing', url, e.name, ':', e.message)
-			console.log(e)
+			if(
+				e.message === 'Expected image (BMP, JPEG, PNG, or GIF), but got unsupported image type'
+				&& (contentType === 'image/bmp' || contentType === 'image/jpeg' || contentType === 'image/png')
+			){
+
+				logger(prefix, 'bad data found', contentType, url)
+				await db<TxRecord>('txs').where({txid}).update({
+					flagged: false,
+					valid_data: false,
+					last_update_date: new Date(),
+				})
+			}else if(e.response && e.response.status === 404){
+
+				logger(prefix, 'no data found', contentType, url)
+				await db<TxRecord>('txs').where({txid}).update({
+					flagged: false,
+					valid_data: false,
+					last_update_date: new Date(),
+				})
+			}else{
+				
+				logger(prefix, 'Error processing', url, e.name, ':', e.message)
+				console.log(e)
+			}
 		}
 	}
-
-
 }
 
 
