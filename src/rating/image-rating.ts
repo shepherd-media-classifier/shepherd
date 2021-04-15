@@ -86,11 +86,13 @@ export class NsfwTools {
 			let sum = scores.Porn + scores.Sexy + scores.Hentai 
 			const flagged = (sum > 0.5)
 	
-			logger(prefix,
-				url + ' ', 
-				flagged,
-				JSON.stringify(scores),
-			)
+			if(flagged){
+				logger(prefix,
+					url + ' ', 
+					flagged,
+					JSON.stringify(scores),
+				)
+			}
 			
 			await db<TxRecord>('txs').where({txid: txid}).update({
 				flagged,

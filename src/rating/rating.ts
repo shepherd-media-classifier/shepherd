@@ -51,7 +51,7 @@ try {
 	while(true){
 
 		let batch = records.splice(0, maxImages)
-		logger(prefix, `Rating ${batch.length} of ${records.length} images`)
+		logger(prefix, `rating ${batch.length} of ${records.length + batch.length} images...`)
 
 		await Promise.all(batch.map(record => {
 			return NsfwTools.checkImageTxid(record.txid, record.content_type)
