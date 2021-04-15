@@ -2,7 +2,6 @@ require('dotenv').config() //first line of entrypoint
 import col from 'ansi-colors'
 import { logger } from './utils/logger'
 import { scanner } from './scanner/poller'
-import { NsfwTools } from './rating/image-rating'
 import { rater } from './rating/rating'
 
 

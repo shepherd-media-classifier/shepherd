@@ -2,11 +2,12 @@
   "name": "ar-blacklist",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "build/index.js",
+  "types": "build/index.d.ts",
   "scripts": {
-    "start:tfwarn": "ts-node src/index.ts",
+    "start:prod": "cross-env NODE_ENV=production ts-node src/index.ts",
     "start": "cross-env TF_CPP_MIN_LOG_LEVEL=2 ts-node src/index.ts",
-    "build": "tsc",
+    "build": "tsc -p tsconfig.build.json",
     "preinstall": "docker-compose up --build -d",
     "uninstall": "docker-compose down --remove-orphans",
     "test": "mocha -r ts-node/register tests/**/*.spec.ts"

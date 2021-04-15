@@ -17,6 +17,11 @@ import * as nsfw from 'nsfwjs'
 import getDbConnection from '../utils/db-connection'
 import { TxRecord } from '../types'
 
+
+if(process.env.NODE_ENV === 'production'){
+	tf.enableProdMode()
+}
+
 const prefix = 'rating'
 
 const db = getDbConnection()
