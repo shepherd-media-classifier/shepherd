@@ -41,3 +41,15 @@ export const getBlacklist = async(black: boolean)=> {
 	
 	return text
 }
+
+export const getBlacklistTestOnly = async(black: boolean)=> {
+
+	const records = await db<TxRecord>('txs').where({flagged: black})
+	logger(prefix, 'flagged txs retrieved', records.length)
+	let html = '<html><body style="font-family:\'Courier New\',monospace;"><h1>Number of records: ' + records.length + '</h1><p>\n'
+	for (const record of records) {
+		html += `<a href="https://arweave.net/${record.txid}">${record.txid}</a> ${record.content_size} ${record.content_type} porn=${record.nsfw_porn} sexy=${record.nsfw_sexy} hentai=${record.nsfw_hentai} drawings=${record.nsfw_drawings} neutral=${record.nsfw_neutral} <br/>\n`
+	}
+
+	return html + '</p></body></html>'
+}

@@ -1,6 +1,6 @@
 import express from 'express'
 import { logger } from '../utils/logger'
-import { getBlacklist } from './blacklist'
+import { getBlacklist, getBlacklistTestOnly } from './blacklist'
 
 const prefix = 'server'
 
@@ -25,6 +25,11 @@ app.get('/whitelist.txt', async(req, res)=> {
 	res.send(text)
 })
 
+app.get('/nocache-testonly.html', async(req, res)=> {
+	res.setHeader('Content-Type', 'text/html')
+	const html = await getBlacklistTestOnly(true)
+	res.send(html)
+})
 
 
 app.listen(port, ()=> logger(prefix, `started on http://localhost:${port}`))
