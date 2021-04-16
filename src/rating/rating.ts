@@ -41,7 +41,7 @@ try {
 	//max num of images to process at one time
 	const calcMaxImages = (backlog: number) => {
 		if(backlog <= 0) return 0 //sanity
-		if(backlog >= 100) return 50
+		if(backlog >= 100) return 20
 		if(backlog >= 10) return 10
 		return 1
 	}
