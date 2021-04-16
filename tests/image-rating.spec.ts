@@ -32,14 +32,31 @@ describe('image-rating ad-hoc tests', ()=> {
 	// 	expect(true).to.be.true
 	// })
 
-	it('tests handling TF bad data error when Content-Type is image/png', async()=>{
+	// it('tests handling TF bad data error when Content-Type is image/png', async()=>{
+	// 	try {
+	// 		const txidBadPng = 'DFzY841LjCmoEZ0ou4V5uFoorOcEvANQzAMi-CA93lA'
+	// 		const res = await NsfwTools.checkImageTxid(txidBadPng, 'image/png')
+
+	// 		console.log(col.green(JSON.stringify(res)))
+
+			
+
+	// 	} catch (e) {
+	// 		console.log('CATCHING',e)
+	// 		console.log(col.green('e.name:' + e.name))
+	// 		console.log(col.green('e.message:' + e.message))
+	// 	}
+	// 	expect(true).to.be.true
+	// })
+
+	it('tests handling bad content length when Content-Type is image/png', async()=>{
 		try {
-			const txidBadPng = 'DFzY841LjCmoEZ0ou4V5uFoorOcEvANQzAMi-CA93lA'
+			const txidBadPng = 'mKtVp1UVE7TScGBoGrZ8Qi741v2G06a-An8baaceY2M' //cpntent
 			const res = await NsfwTools.checkImageTxid(txidBadPng, 'image/png')
 
 			console.log(col.green(JSON.stringify(res)))
 
-			
+
 
 		} catch (e) {
 			console.log('CATCHING',e)
