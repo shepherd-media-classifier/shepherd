@@ -54,6 +54,7 @@ try {
 		logger(prefix, `rating ${batch.length} of ${records.length + batch.length} images...`)
 
 		await Promise.all(batch.map(record => {
+			logger(prefix, 'processing', record.txid, record.content_type, record.content_size)
 			return NsfwTools.checkImageTxid(record.txid, record.content_type)
 		}))
 
