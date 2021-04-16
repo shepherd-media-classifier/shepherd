@@ -128,10 +128,18 @@ export class NsfwTools {
 					valid_data: false,
 					last_update_date: new Date(),
 				})
+			}else if(contentType === 'image/png' && e.message.startsWith('Invalid TF_Status: 3')){
+
+				logger(prefix, 'bad png data found', contentType, url)
+				await db<TxRecord>('txs').where({txid}).update({
+					flagged: false,
+					valid_data: false,
+					last_update_date: new Date(),
+				})
 			}else{
 
 				logger(prefix, 'Error processing', url, e.name, ':', e.message)
-				console.log(e)
+				logger(prefix, 'UNHANDLED', e)
 			}
 		}
 	}
