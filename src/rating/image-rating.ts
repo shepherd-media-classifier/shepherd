@@ -69,6 +69,7 @@ export class NsfwTools {
 		try{
 
 			const pic = await axios.get(url, {
+				cancelToken: source.token,
 				responseType: 'arraybuffer',
 			})
 

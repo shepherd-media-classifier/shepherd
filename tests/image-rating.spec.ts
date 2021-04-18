@@ -64,6 +64,6 @@ describe('image-rating ad-hoc tests', ()=> {
 			console.log(col.green('e.message:' + e.message))
 		}
 		expect(true).to.be.true
-	})
+	}).timeout(60000)
 
 })
