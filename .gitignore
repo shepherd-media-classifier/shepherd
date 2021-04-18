@@ -6,3 +6,4 @@ NOTES.txt
 *.log
 .DS_Store
 .vscode/settings.json
+postgres.build
