@@ -16,6 +16,7 @@ import * as tf from '@tensorflow/tfjs-node'
 import * as nsfw from 'nsfwjs'
 import getDbConnection from '../utils/db-connection'
 import { TxRecord } from '../types'
+import { GET_IMAGE_TIMEOUT } from '../constants'
 
 
 if(process.env.NODE_ENV === 'production'){
@@ -58,11 +59,24 @@ export class NsfwTools {
 
 	static checkImageUrl = async(url: string)=> {
 
-		const pic = await axios.get(url, {
-			responseType: 'arraybuffer',
-		})
-		
-		return NsfwTools.checkImage(pic.data)
+		/**
+		 * Axios never times out if the connection is opened correctly with non-zero Content-Length, but no data is ever returned.
+		 * The workaround is ot set a timeout, cancel the request, and throw an error.
+		 */
+		const source = axios.CancelToken.source()
+		setTimeout( ()=>source.cancel(), GET_IMAGE_TIMEOUT )
+
+		try{
+
+			const pic = await axios.get(url, {
+				responseType: 'arraybuffer',
+			})
+
+			return NsfwTools.checkImage(pic.data)
+
+		}catch(e){
+			throw new Error(`Timeout of ${GET_IMAGE_TIMEOUT}ms exceeded`)
+		}
 	}
 
 	static checkImageTxid = async(txid: string, contentType: string)=> {
@@ -109,6 +123,7 @@ export class NsfwTools {
 
 
 		} catch (e) {
+			/* catch all sorts of bad data */
 			if(
 				e.message === 'Expected image (BMP, JPEG, PNG, or GIF), but got unsupported image type'
 				&& (contentType === 'image/bmp' || contentType === 'image/jpeg' || contentType === 'image/png')
@@ -131,6 +146,14 @@ export class NsfwTools {
 			}else if(contentType === 'image/png' && e.message.startsWith('Invalid TF_Status: 3')){
 
 				logger(prefix, 'bad png data found', contentType, url)
+				await db<TxRecord>('txs').where({txid}).update({
+					flagged: false,
+					valid_data: false,
+					last_update_date: new Date(),
+				})
+			}else if(e.message === `Timeout of ${GET_IMAGE_TIMEOUT}ms exceeded`){
+
+				logger(prefix, 'connection timed out *CHECK THIS ERROR*', contentType, url)
 				await db<TxRecord>('txs').where({txid}).update({
 					flagged: false,
 					valid_data: false,
