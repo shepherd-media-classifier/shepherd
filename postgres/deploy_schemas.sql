@@ -28,7 +28,7 @@ CREATE TABLE states (
 	value INT NOT NULL
 );
 
-INSERT INTO states(pname, blocknumber) 
+INSERT INTO states(pname, value) 
 VALUES 
 	('scanner_position', 0),
 	('rating_position', 0);
