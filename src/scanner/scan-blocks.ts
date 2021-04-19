@@ -95,7 +95,7 @@ export const scanBlocks = async (minBlock: number, maxBlock: number): Promise<IG
 
 		/* get supported types metadata */
 
-		logger(prefix, `making three scans of ${((maxBlock - minBlock) + 1)} blocks..`)
+		logger(prefix, `making three scans of ${((maxBlock - minBlock) + 1)} blocks, from block ${minBlock} to ${maxBlock}`)
 		const images = await getRecords(imageTypes)
 		const videos = await getRecords(videoTypes)
 		const others = await getRecords(otherTypes)
