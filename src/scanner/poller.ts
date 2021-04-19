@@ -16,10 +16,10 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 const waitForNewBlock =  async (height: number) => {
 	while(true){
 		let h = await getTopBlock()
-		console.log('polling height', h)
 		if(h >= height){
 			return h; //stop waiting
 		}
+		logger(prefix, 'weave height', h, 'synced to height', (h - TRAIL_BEHIND))
 		await sleep(30000)
 	}
 }
@@ -39,7 +39,7 @@ export const scanner = async()=> {
 		let topBlock = await getTopBlock()
 		const initialHeight = topBlock // we do not want to keep calling getTopBlock during initial catch up phase
 
-		console.log('Starting scanner position', position, 'and weave height', topBlock)
+		logger(prefix, 'Starting scanner position', position, 'and weave height', topBlock)
 
 		const calcBulkBlocks = (position: number) => {
 			if(position < 150000) return 1000
@@ -69,6 +69,7 @@ export const scanner = async()=> {
 					'videos', res.videos.length, 
 					'others', res.others.length,
 					'scanner_position', max,
+					'topBlock', topBlock,
 				)
 
 				min = max + 1 
