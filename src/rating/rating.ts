@@ -42,8 +42,7 @@ try {
 	const calcMaxImages = (backlog: number) => {
 		if(backlog <= 0) return 0 //sanity
 		if(backlog >= 100) return 100
-		if(backlog >= 10) return 10
-		return 1
+		return backlog
 	}
 
 	let maxImages = calcMaxImages(backlog)
