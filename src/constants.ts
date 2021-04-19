@@ -37,4 +37,4 @@ export const otherTypes = [
 	"application/pdf",
 ]
 
-export const GET_IMAGE_TIMEOUT = 30000
+export const GET_IMAGE_TIMEOUT = 60000
