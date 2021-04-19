@@ -155,11 +155,12 @@ export class NsfwTools {
 			}else if(e.message === `Timeout of ${GET_IMAGE_TIMEOUT}ms exceeded`){
 
 				logger(prefix, 'connection timed out *CHECK THIS ERROR*', contentType, url)
-				await db<TxRecord>('txs').where({txid}).update({
-					flagged: false,
-					valid_data: false,
-					last_update_date: new Date(),
-				})
+				// await db<TxRecord>('txs').where({txid}).update({
+				// 	flagged: false,
+				// 	valid_data: false,
+				// 	last_update_date: new Date(),
+				// })
+				logger(prefix, 'writing to db disabled for ', url)
 			}else{
 
 				logger(prefix, 'Error processing', url, e.name, ':', e.message)
