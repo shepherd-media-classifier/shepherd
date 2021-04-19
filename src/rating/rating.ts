@@ -41,7 +41,7 @@ try {
 	//max num of images to process at one time
 	const calcMaxImages = (backlog: number) => {
 		if(backlog <= 0) return 0 //sanity
-		if(backlog >= 100) return 100
+		if(backlog >= 100) return 50
 		return backlog
 	}
 
@@ -55,6 +55,8 @@ try {
 		await Promise.all(batch.map(record => {
 			return NsfwTools.checkImageTxid(record.txid, record.content_type)
 		}))
+
+		await sleep(2000) // take a break
 
 		if(records.length <= 0){
 			records = await waitForImages()
