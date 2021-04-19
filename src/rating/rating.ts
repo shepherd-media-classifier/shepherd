@@ -56,7 +56,7 @@ try {
 			return NsfwTools.checkImageTxid(record.txid, record.content_type)
 		}))
 
-		await sleep(2000) // take a break
+		await sleep(500) // take a break
 
 		if(records.length <= 0){
 			records = await waitForImages()
