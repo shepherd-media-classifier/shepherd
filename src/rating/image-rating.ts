@@ -151,7 +151,7 @@ export class NsfwTools {
 				})
 			}else if(e.message.startsWith('Invalid TF_Status: 3')){
 
-				logger(prefix, 'bad/partial data, "Invalid TF_Status: 3" found', contentType, url)
+				logger(prefix, 'bad/partial data, "Invalid TF_Status: 3" found, flagging', true, contentType, url)
 				await db<TxRecord>('txs').where({txid}).update({
 					flagged: true,
 					valid_data: false,
@@ -159,13 +159,12 @@ export class NsfwTools {
 				})
 			}else if(e.message === `Timeout of ${GET_IMAGE_TIMEOUT}ms exceeded`){
 
-				logger(prefix, 'connection timed out *CHECK THIS ERROR*', contentType, url)
-				// await db<TxRecord>('txs').where({txid}).update({
-				// 	flagged: false,
-				// 	valid_data: false,
-				// 	last_update_date: new Date(),
-				// })
-				logger(prefix, 'writing to db disabled for ', url)
+				logger(prefix, 'connection timed out *CHECK THIS ERROR* setting flagged=null, valid_data=false', contentType, url)
+				await db<TxRecord>('txs').where({txid}).update({
+					// flagged: false,
+					valid_data: false,
+					last_update_date: new Date(),
+				})
 			}else{
 
 				logger(prefix, 'Error processing', url, e.name, ':', e.message)
