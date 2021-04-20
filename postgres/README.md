@@ -14,3 +14,5 @@
 `docker container ps`
 
 `docker exec -it XXXXXXXX psql -U postgres arblacklist`
+
+docker exec -it ar-blacklist_dbpostgres_1 psql -U postgres arblacklist
