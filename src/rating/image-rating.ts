@@ -64,7 +64,7 @@ export class NsfwTools {
 		 * The workaround is ot set a timeout, cancel the request, and throw an error.
 		 */
 		const source = axios.CancelToken.source()
-		setTimeout( ()=>source.cancel(), GET_IMAGE_TIMEOUT )
+		const timer = setTimeout( ()=>source.cancel(), GET_IMAGE_TIMEOUT )
 
 		try{
 
@@ -72,10 +72,15 @@ export class NsfwTools {
 				cancelToken: source.token,
 				responseType: 'arraybuffer',
 			})
+			clearTimeout(timer)
 
 			return NsfwTools.checkImage(pic.data)
 
 		}catch(e){
+			clearTimeout(timer)
+			if(e.response){
+				throw(e)
+			}
 			throw new Error(`Timeout of ${GET_IMAGE_TIMEOUT}ms exceeded`)
 		}
 	}
