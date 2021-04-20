@@ -1,3 +1,4 @@
+require('dotenv').config() //first line of entrypoint
 import axios from "axios"
 import { StateRecord } from "../types"
 import dbConnection from "../utils/db-connection"
@@ -24,7 +25,7 @@ const waitForNewBlock =  async (height: number) => {
 	}
 }
 
-export const scanner = async()=> {
+const scanner = async()=> {
 	try {
 		/**
 		 * numOfBlocks - to scan at once
@@ -84,4 +85,4 @@ export const scanner = async()=> {
 		logger(prefix, 'Error in scanner!\t', e.name, ':', e.message)
 	}
 }
-
+scanner()

@@ -1,3 +1,4 @@
+require('dotenv').config() //first line of entrypoint
 import express from 'express'
 import { logger } from '../utils/logger'
 import { getBlacklist, getBlacklistTestOnly } from './blacklist'

@@ -1,20 +1,20 @@
 require('dotenv').config() //first line of entrypoint
 import col from 'ansi-colors'
 import { logger } from './utils/logger'
-import { scanner } from './scanner/poller'
-import { rater } from './rating/rating'
+// import { scanner } from './scanner/poller'
+// import { rater } from './rating/rating'
 
 
 /* start http server */
-import './server/server'
+// import './server/server'
 
 
 
 const main = async()=> {
 	try {
-		scanner() //do not await
-		rater() 
-
+		// scanner() //do not await
+		// rater() 
+		throw new Error('index is no longer used! try "pm2 restart ecosystem.config.js"')
 		
 
 		console.log(col.green('finished main :-)'))

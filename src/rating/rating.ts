@@ -1,3 +1,4 @@
+require('dotenv').config() //first line of entrypoint
 import { TxRecord } from '../types'
 import getDbConnection from '../utils/db-connection'
 import { logger } from '../utils/logger'
@@ -26,49 +27,50 @@ const waitForImages = async()=> {
 	}
 }
 
-export const rater = async()=> {
-try {
-	
-	/* initialise. load nsfw tf model */
+const rater = async()=> {
+	try {
+		
+		/* initialise. load nsfw tf model */
 
-	await NsfwTools.loadModel()
+		await NsfwTools.loadModel()
 
-	/* get images with native nsfwjs support: BMP, JPEG, PNG, or GIF(later) */
-	
-	let records = await waitForImages()
-	let backlog = records.length
+		/* get images with native nsfwjs support: BMP, JPEG, PNG, or GIF(later) */
+		
+		let records = await waitForImages()
+		let backlog = records.length
 
-	//max num of images to process at one time
-	const calcMaxImages = (backlog: number) => {
-		if(backlog <= 0) return 0 //sanity
-		if(backlog >= 100) return 50
-		return backlog
-	}
-
-	let maxImages = calcMaxImages(backlog)
-
-	while(true){
-
-		let batch = records.splice(0, maxImages)
-		logger(prefix, `rating ${batch.length} of ${records.length + batch.length} images...`)
-
-		await Promise.all(batch.map(record => {
-			return NsfwTools.checkImageTxid(record.txid, record.content_type)
-		}))
-
-		await sleep(500) // take a break
-
-		if(records.length <= 0){
-			records = await waitForImages()
+		//max num of images to process at one time
+		const calcMaxImages = (backlog: number) => {
+			if(backlog <= 0) return 0 //sanity
+			if(backlog >= 100) return 100
+			return backlog
 		}
 
-		maxImages = calcMaxImages(records.length)
+		let maxImages = calcMaxImages(backlog)
+
+		while(true){
+
+			let batch = records.splice(0, maxImages)
+			logger(prefix, `rating ${batch.length} of ${records.length + batch.length} images...`)
+
+			await Promise.all(batch.map(record => {
+				return NsfwTools.checkImageTxid(record.txid, record.content_type)
+			}))
+
+			// await sleep(500) // take a break
+
+			if(records.length <= 0){
+				records = await waitForImages()
+			}
+
+			maxImages = calcMaxImages(records.length)
+		}
+
+
+
+		console.log(col.green('rater finished!'))
+	} catch (e) {
+		logger(prefix, 'Error in rater!\t', e.name, ':', e.message)
 	}
-
-
-
-	console.log(col.green('rater finished!'))
-} catch (e) {
-	logger(prefix, 'Error in rater!\t', e.name, ':', e.message)
 }
-}
+rater()
