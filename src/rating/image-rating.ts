@@ -151,9 +151,9 @@ export class NsfwTools {
 				})
 			}else if(e.message.startsWith('Invalid TF_Status: 3')){
 
-				logger(prefix, 'bad data, "Invalid TF_Status: 3" found', contentType, url)
+				logger(prefix, 'bad/partial data, "Invalid TF_Status: 3" found', contentType, url)
 				await db<TxRecord>('txs').where({txid}).update({
-					flagged: false,
+					flagged: true,
 					valid_data: false,
 					last_update_date: new Date(),
 				})
