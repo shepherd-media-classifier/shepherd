@@ -14,6 +14,7 @@ export const imageTypes = [
 	"image/tiff",
 	"image/webp",
 	"image/x-ms-bmp",
+	"image/svg+xml", // late addition
 ]
 
 export const videoTypes = [
