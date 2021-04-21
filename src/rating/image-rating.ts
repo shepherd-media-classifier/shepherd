@@ -151,7 +151,8 @@ export class NsfwTools {
 				})
 			}else if(e.message.startsWith('Invalid TF_Status: 3')){
 
-				logger(prefix, 'bad/partial data, "Invalid TF_Status: 3" found, flagging', true, contentType, url)
+				const reason = e.message.split('\n')[1]
+				logger(prefix, 'bad/partial data, "Invalid TF_Status: 3" found, flagging=>true, reason:', reason, contentType, url)
 				await db<TxRecord>('txs').where({txid}).update({
 					flagged: true,
 					valid_data: false,
