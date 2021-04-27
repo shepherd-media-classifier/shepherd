@@ -17,6 +17,7 @@ import * as nsfw from 'nsfwjs'
 import getDbConnection from '../utils/db-connection'
 import { TxRecord } from '../types'
 import { GET_IMAGE_TIMEOUT } from '../constants'
+import col from 'ansi-colors'
 
 
 if(process.env.NODE_ENV === 'production'){
@@ -27,7 +28,7 @@ const prefix = 'rating'
 
 const db = getDbConnection()
 
-//static everything to keep that model
+//static everything to keep model in memory
 export class NsfwTools {
 	static _model: nsfw.NSFWJS
 	private constructor(){} //hide
@@ -68,13 +69,13 @@ export class NsfwTools {
 
 		try{
 
-			const pic = await axios.get(url, {
+			const { data: pic } = await axios.get(url, {
 				cancelToken: source.token,
 				responseType: 'arraybuffer',
 			})
 			clearTimeout(timer)
 
-			return NsfwTools.checkImage(pic.data)
+			return NsfwTools.checkImage(pic)
 
 		}catch(e){
 			clearTimeout(timer)
@@ -82,6 +83,70 @@ export class NsfwTools {
 				throw(e)
 			}
 			throw new Error(`Timeout of ${GET_IMAGE_TIMEOUT}ms exceeded`)
+		}
+	}
+
+	static checkGifTxid = async(txid: string)=> {
+
+		const url = `https://arweave.net/${txid}`
+
+		try {
+
+			const { data: pic } = await axios.get(url, {
+				responseType: 'arraybuffer',
+			})
+
+			const model = await NsfwTools.loadModel()
+			const framePredictions = await model.classifyGif(pic, {
+				topk: 2,
+				fps: 2,
+			})
+
+			console.log(col.red(JSON.stringify(framePredictions)))
+
+			for (const frame of framePredictions) {
+				const class1 = frame[0].className
+				const prob1 = frame[0].probability
+				const class2 = frame[1].className
+
+				if(class1 === 'Hentai'){
+					if(prob1 > 0.6){
+						logger(prefix, 'hentai gif detected', url)
+						return frame;
+					}
+					logger(prefix, 'hentai < 0.6', url)
+				}
+
+				if(class1 === 'Porn'){
+					logger(prefix, 'porn gif detected', url)
+					return frame
+				}
+
+				if(class1 === 'Sexy'){
+					logger(prefix, 'sexy gif detected', url)
+					return frame
+				}
+			}
+
+			logger(prefix, 'gif clean', url)
+			return []
+
+		} catch (e) {
+
+			/* handle all the bad data */
+
+			if(e.response && e.response.status === 404){
+				logger(prefix, 'no data found (404)', url)
+			}
+
+			if(e.message === 'Invalid GIF 87a/89a header'){
+				logger(prefix, 'bad data found (Invalid GIF 87a/89a header)', url)
+			}
+
+			else{
+				logger(prefix, 'Error processing', url + ' ', e.name, ':', e.message)
+				logger(prefix, 'UNHANDLED', e)
+			}
 		}
 	}
 
@@ -141,15 +206,19 @@ export class NsfwTools {
 					valid_data: false,
 					last_update_date: new Date(),
 				})
+
 			}else if(e.response && e.response.status === 404){
 
-				logger(prefix, 'no data found', contentType, url)
+				logger(prefix, 'no data found (404)', contentType, url)
 				await db<TxRecord>('txs').where({txid}).update({
 					flagged: false,
 					valid_data: false,
 					last_update_date: new Date(),
 				})
+
 			}else if(e.message.startsWith('Invalid TF_Status: 3')){
+
+				//TODO: split this out into the different ways to resample/handle errors
 
 				const reason = e.message.split('\n')[1]
 				logger(prefix, 'bad/partial data, "Invalid TF_Status: 3" found, flagging=>true, reason:', reason, contentType, url)
@@ -158,6 +227,7 @@ export class NsfwTools {
 					valid_data: false,
 					last_update_date: new Date(),
 				})
+
 			}else if(e.message === `Timeout of ${GET_IMAGE_TIMEOUT}ms exceeded`){
 
 				logger(prefix, 'connection timed out *CHECK THIS ERROR* setting flagged=null, valid_data=false', contentType, url)
@@ -166,6 +236,7 @@ export class NsfwTools {
 					valid_data: false,
 					last_update_date: new Date(),
 				})
+
 			}else{
 
 				logger(prefix, 'Error processing', url, e.name, ':', e.message)

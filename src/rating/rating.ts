@@ -57,7 +57,6 @@ const rater = async()=> {
 				return NsfwTools.checkImageTxid(record.txid, record.content_type)
 			}))
 
-			// await sleep(500) // take a break
 
 			if(records.length <= 0){
 				records = await waitForImages()
@@ -68,7 +67,6 @@ const rater = async()=> {
 
 
 
-		console.log(col.green('rater finished!'))
 	} catch (e) {
 		logger(prefix, 'Error in rater!\t', e.name, ':', e.message)
 	}
