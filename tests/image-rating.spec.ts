@@ -97,12 +97,19 @@ describe('image-rating ad-hoc tests', ()=> {
 		try {
 
 			let records = await db<TxRecord>('txs').where({content_type: 'image/gif'})
-
-			for (const record of records) {
-				const res = await NsfwTools.checkGifTxid(record.txid)
+			
+			while(records.length > 0){
 				
+				console.log('IN', records.length, 'records left')
+				const batchLen = 10
+				let batch = records.splice(0, (records.length > batchLen ? batchLen : records.length ))
+				
+				await Promise.all(batch.map( async (record) => {
+					await NsfwTools.checkGifTxid(record.txid)
+				}))
+				
+				console.log('OUT', records.length, 'records left')
 			}
-
 
 
 			console.log(col.green(JSON.stringify(records.length)))
@@ -115,6 +122,6 @@ describe('image-rating ad-hoc tests', ()=> {
 			console.log(col.green('e.message:' + e.message))
 		}
 		expect(true).to.be.true
-	}).timeout(60000)
+	}).timeout(0)
 
 })

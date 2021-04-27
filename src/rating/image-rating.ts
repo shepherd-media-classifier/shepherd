@@ -139,7 +139,7 @@ export class NsfwTools {
 				logger(prefix, 'no data found (404)', url)
 			}
 
-			if(e.message === 'Invalid GIF 87a/89a header'){
+			if(e.message === 'Invalid GIF 87a/89a header.'){
 				logger(prefix, 'bad data found (Invalid GIF 87a/89a header)', url)
 			}
 
