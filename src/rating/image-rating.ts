@@ -16,8 +16,9 @@ import * as tf from '@tensorflow/tfjs-node'
 import * as nsfw from 'nsfwjs'
 import getDbConnection from '../utils/db-connection'
 import { TxRecord } from '../types'
-import { GET_IMAGE_TIMEOUT } from '../constants'
+import { NO_DATA_TIMEOUT } from '../constants'
 import col from 'ansi-colors'
+import { axiosDataTimeout } from '../utils/axiosDataTimeout'
 
 
 if(process.env.NODE_ENV === 'production'){
@@ -60,30 +61,10 @@ export class NsfwTools {
 
 	static checkImageUrl = async(url: string)=> {
 
-		/**
-		 * Axios never times out if the connection is opened correctly with non-zero Content-Length, but no data is ever returned.
-		 * The workaround is ot set a timeout, cancel the request, and throw an error.
-		 */
-		const source = axios.CancelToken.source()
-		const timer = setTimeout( ()=>source.cancel(), GET_IMAGE_TIMEOUT )
+		const pic = await axiosDataTimeout(url)
 
-		try{
+		return NsfwTools.checkImage(pic)
 
-			const { data: pic } = await axios.get(url, {
-				cancelToken: source.token,
-				responseType: 'arraybuffer',
-			})
-			clearTimeout(timer)
-
-			return NsfwTools.checkImage(pic)
-
-		}catch(e){
-			clearTimeout(timer)
-			if(e.response){
-				throw(e)
-			}
-			throw new Error(`Timeout of ${GET_IMAGE_TIMEOUT}ms exceeded`)
-		}
 	}
 
 	static checkGifTxid = async(txid: string)=> {
@@ -92,12 +73,10 @@ export class NsfwTools {
 
 		try {
 
-			const { data: pic } = await axios.get(url, {
-				responseType: 'arraybuffer',
-			})
+			const gif = await axiosDataTimeout(url)
 
 			const model = await NsfwTools.loadModel()
-			const framePredictions = await model.classifyGif(pic, {
+			const framePredictions = await model.classifyGif(gif, {
 				topk: 2,
 				fps: 2,
 			})
@@ -139,8 +118,12 @@ export class NsfwTools {
 				logger(prefix, 'no data found (404)', url)
 			}
 
-			if(e.message === 'Invalid GIF 87a/89a header.'){
+			else if(e.message === 'Invalid GIF 87a/89a header.'){
 				logger(prefix, 'bad data found (Invalid GIF 87a/89a header)', url)
+			}
+
+			else if(e.message === 'Timeout of 20000ms exceeded'){
+				logger(prefix, 'Timeout of 20000ms exceeded', url)
 			}
 
 			else{
@@ -228,7 +211,7 @@ export class NsfwTools {
 					last_update_date: new Date(),
 				})
 
-			}else if(e.message === `Timeout of ${GET_IMAGE_TIMEOUT}ms exceeded`){
+			}else if(e.message === `Timeout of ${NO_DATA_TIMEOUT}ms exceeded`){
 
 				logger(prefix, 'connection timed out *CHECK THIS ERROR* setting flagged=null, valid_data=false', contentType, url)
 				await db<TxRecord>('txs').where({txid}).update({

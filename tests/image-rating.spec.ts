@@ -4,6 +4,7 @@ import { expect } from 'chai'
 import { NsfwTools } from '../src/rating/image-rating'
 import getDbConnection from '../src/utils/db-connection'
 import { TxRecord } from '../src/types'
+import { logger } from '../src/utils/logger'
 
 
 
@@ -98,17 +99,21 @@ describe('image-rating ad-hoc tests', ()=> {
 
 			let records = await db<TxRecord>('txs').where({content_type: 'image/gif'})
 			
+			records.splice(0, 550) //throw away first records
+			logger('test', records.length, 'total records found')
+
 			while(records.length > 0){
 				
-				console.log('IN', records.length, 'records left')
 				const batchLen = 10
 				let batch = records.splice(0, (records.length > batchLen ? batchLen : records.length ))
 				
+
 				await Promise.all(batch.map( async (record) => {
-					await NsfwTools.checkGifTxid(record.txid)
+					console.log(record.txid, 'processing...')
+					return await NsfwTools.checkGifTxid(record.txid)
 				}))
 				
-				console.log('OUT', records.length, 'records left')
+				logger('test', records.length, 'records left')
 			}
 
 
