@@ -11,7 +11,6 @@
  */
 
 import { logger } from '../utils/logger'
-import axios from 'axios'
 import * as tf from '@tensorflow/tfjs-node'
 import * as nsfw from 'nsfwjs'
 import getDbConnection from '../utils/db-connection'
@@ -77,8 +76,8 @@ export class NsfwTools {
 
 			const model = await NsfwTools.loadModel()
 			const framePredictions = await model.classifyGif(gif, {
-				topk: 2,
-				fps: 2,
+				topk: 1,
+				fps: 1,
 			})
 
 			console.log(col.red(JSON.stringify(framePredictions)))
@@ -86,7 +85,6 @@ export class NsfwTools {
 			for (const frame of framePredictions) {
 				const class1 = frame[0].className
 				const prob1 = frame[0].probability
-				const class2 = frame[1].className
 
 				if(class1 === 'Hentai'){
 					if(prob1 > 0.6){
@@ -122,8 +120,8 @@ export class NsfwTools {
 				logger(prefix, 'bad data found (Invalid GIF 87a/89a header)', url)
 			}
 
-			else if(e.message === 'Timeout of 20000ms exceeded'){
-				logger(prefix, 'Timeout of 20000ms exceeded', url)
+			else if(e.message === `Timeout of ${NO_DATA_TIMEOUT}ms exceeded`){
+				logger(prefix, `Timeout of ${NO_DATA_TIMEOUT}ms exceeded`, url)
 			}
 
 			else{
