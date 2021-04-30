@@ -135,7 +135,7 @@ export class NsfwTools {
 
 		// process gifs separately
 		if(contentType === 'image/gif'){
-			return NsfwTools.checkGifTxid(txid)
+			// return NsfwTools.checkGifTxid(txid)
 		}
 
 		const url = `https://arweave.net/${txid}`
