@@ -17,7 +17,7 @@ export const axiosDataTimeout = async(url: string)=> {
 			 const res = await axios.get(url, {
 				 cancelToken: source.token,
 				 responseType: 'arraybuffer',
-				//  onDownloadProgress: ()=> clearTimeout(timer),
+				//  onDownloadProgress: ()=> clearTimeout(timer), //browser only
 			 })
 			 clearTimeout(timer)
  

@@ -133,6 +133,11 @@ export class NsfwTools {
 
 	static checkImageTxid = async(txid: string, contentType: string)=> {
 
+		// process gifs separately
+		if(contentType === 'image/gif'){
+			return NsfwTools.checkGifTxid(txid)
+		}
+
 		const url = `https://arweave.net/${txid}`
 		
 		try {
