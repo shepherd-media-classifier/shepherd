@@ -1,7 +1,7 @@
 require('dotenv').config() //first line of entrypoint
 import col from 'ansi-colors'
 import { expect } from 'chai'
-import { NsfwTools } from '../src/rating/image-rating'
+import { NsfwTools } from '../src/rating/image-rater'
 import getDbConnection from '../src/utils/db-connection'
 import { TxRecord } from '../src/types'
 import { logger } from '../src/utils/logger'
@@ -69,55 +69,122 @@ describe('image-rating ad-hoc tests', ()=> {
 	// 	expect(true).to.be.true
 	// }).timeout(60000)
 	
-		it('tests rating single image/gif', async()=>{
+	// 	it('tests rating single image/gif', async()=>{
 	
-			try {
+	// 		try {
 	
-				const txid = 'OIiLO3Y6YSCsqN2YLh2g-ZDh8RV3sGZi2jCRstaIaxQ' 
+	// 			const txid = 'OIiLO3Y6YSCsqN2YLh2g-ZDh8RV3sGZi2jCRstaIaxQ' 
 	
-				const res = await NsfwTools.checkGifTxid(txid)
-	
-	
-	
-				console.log(col.green(JSON.stringify(res)))
+	// 			const res = await NsfwTools.checkGifTxid(txid)
 	
 	
 	
-			} catch (e) {
-				console.log('CATCHING',e)
-				console.log(col.green('e.name:' + e.name))
-				console.log(col.green('e.message:' + e.message))
-			}
-			expect(true).to.be.true
-		}).timeout(60000)
+	// 			console.log(col.green(JSON.stringify(res)))
+	
+	
+	
+	// 		} catch (e) {
+	// 			console.log('CATCHING',e)
+	// 			console.log(col.green('e.name:' + e.name))
+	// 			console.log(col.green('e.message:' + e.message))
+	// 		}
+	// 		expect(true).to.be.true
+	// 	}).timeout(60000)
 
-	it('tests rating all image/gif from db', async()=>{
+	// it('tests rating all image/gif from db', async()=>{
+
+	// 	const db = getDbConnection()
+
+	// 	try {
+
+	// 		let records = await db<TxRecord>('txs').where({content_type: 'image/gif'})
+			
+	// 		records.splice(0, 550) //throw away first records
+	// 		logger('test', records.length, 'total records found')
+
+	// 		while(records.length > 0){
+				
+	// 			const batchLen = 10
+	// 			let batch = records.splice(0, (records.length > batchLen ? batchLen : records.length ))
+				
+
+	// 			await Promise.all(batch.map( async (record) => {
+	// 				console.log(record.txid, 'processing...')
+	// 				return await NsfwTools.checkGifTxid(record.txid)
+	// 			}))
+				
+	// 			logger('test', records.length, 'records left')
+	// 		}
+
+
+	// 		console.log(col.green(JSON.stringify(records.length)))
+
+
+
+	// 	} catch (e) {
+	// 		console.log('CATCHING',e)
+	// 		console.log(col.green('e.name:' + e.name))
+	// 		console.log(col.green('e.message:' + e.message))
+	// 	}
+	// 	expect(true).to.be.true
+	// }).timeout(0)
+
+	it('tests new rating system for previously rated images', async()=>{
 
 		const db = getDbConnection()
 
 		try {
 
-			let records = await db<TxRecord>('txs').where({content_type: 'image/gif'})
+			let records = await db<TxRecord>('txs')
+			.where({flagged: true})
+			.andWhere( function(){
+				
+				this.orWhere({ content_type: 'image/jpeg'})
+				.orWhere({ content_type: 'image/png'})
+				.orWhere({ content_type: 'image/bmp'})
+			})
 			
-			records.splice(0, 550) //throw away first records
-			logger('test', records.length, 'total records found')
+			logger('test', records.length, 'total flagged records found')
+			let unflagged = 0
 
-			while(records.length > 0){
-				
-				const batchLen = 10
-				let batch = records.splice(0, (records.length > batchLen ? batchLen : records.length ))
-				
+			for (let index = 0; index < records.length; index++) {
+				const r = records[index]
 
-				await Promise.all(batch.map( async (record) => {
-					console.log(record.txid, 'processing...')
-					return await NsfwTools.checkGifTxid(record.txid)
-				}))
+				interface Score { name: string; value: number }
+
+				const scores: Score[] = [
+					{value: r.nsfw_drawings, name: 'drawings'},
+					{value: r.nsfw_hentai, name: 'hentai'},
+					{value: r.nsfw_neutral, name: 'neutral'},
+					{value: r.nsfw_porn, name: 'porn'},
+					{value: r.nsfw_sexy, name: 'sexy'},
+				]
+
+				const max = scores.reduce( (prev, current)=>{
+					return (prev.value > current.value) ? prev : current
+				})
 				
-				logger('test', records.length, 'records left')
+				switch (max.name) {
+					case 'porn':
+						case 'sexy':
+							// logger('test', 'https://arweave.net/'+r.txid+' ', max.name+' is max', JSON.stringify(scores))
+							break;
+						case 'hentai':
+							if(max.value > 0.6){
+								// logger('test', 'https://arweave.net/'+r.txid+' ', 'hentai is >0.6', JSON.stringify(scores))
+								break;
+							}
+							//else unflagged
+						
+						default:
+						unflagged++
+						logger('** NEW CLEAN **', 'https://arweave.net/'+r.txid+' ', JSON.stringify(scores))
+						break;
+				}
 			}
 
 
-			console.log(col.green(JSON.stringify(records.length)))
+			console.log(col.green('new unflagged records ' + unflagged))
 
 
 
