@@ -44,7 +44,7 @@ export const getBlacklist = async(black: boolean)=> {
 
 export const getBlacklistTestOnly = async(black: boolean)=> {
 
-	const records = await db<TxRecord>('txs').where({flagged: black})
+	const records = await db<TxRecord>('txs').where({flagged: black}).orderBy('id', 'desc')
 	logger(prefix, 'flagged txs retrieved', records.length)
 	let html = '<html><body style="font-family:\'Courier New\',monospace;"><h1>Number of records: ' + records.length + '</h1><table>\n'
 	for (const record of records) {
