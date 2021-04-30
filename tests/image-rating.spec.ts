@@ -144,7 +144,7 @@ describe('image-rating ad-hoc tests', ()=> {
 				.orWhere({ content_type: 'image/bmp'})
 			})
 			
-			logger('test', records.length, 'total flagged records found')
+			console.log('test', records.length, 'total flagged records found')
 			let unflagged = 0
 
 			for (let index = 0; index < records.length; index++) {
@@ -178,7 +178,7 @@ describe('image-rating ad-hoc tests', ()=> {
 						
 						default:
 						unflagged++
-						logger('** NEW CLEAN **', 'https://arweave.net/'+r.txid+' ', JSON.stringify(scores))
+						console.log('** NEW CLEAN **', 'https://arweave.net/'+r.txid+' ', JSON.stringify(scores))
 						break;
 				}
 			}
