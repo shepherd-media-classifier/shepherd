@@ -17,7 +17,7 @@ const waitForImages = async()=> {
 			this.orWhere({ content_type: 'image/bmp'})
 			.orWhere({ content_type: 'image/jpeg'})
 			.orWhere({ content_type: 'image/png'})
-			.orWhere({ content_type: 'image/gif'})
+			// .orWhere({ content_type: 'image/gif'})
 		})
 		const length = records.length
 		logger(prefix, length, 'records found')
