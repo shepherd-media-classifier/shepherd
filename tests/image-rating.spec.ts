@@ -129,14 +129,81 @@ describe('image-rating ad-hoc tests', ()=> {
 	// 	expect(true).to.be.true
 	// }).timeout(0)
 
-	it('tests new rating system for previously rated images', async()=>{
+	// it('tests new rating system for previously rated images', async()=>{
+
+	// 	const db = getDbConnection()
+
+	// 	try {
+
+	// 		let records = await db<TxRecord>('txs')
+	// 		.where({flagged: true})
+	// 		.andWhere( function(){
+				
+	// 			this.orWhere({ content_type: 'image/jpeg'})
+	// 			.orWhere({ content_type: 'image/png'})
+	// 			.orWhere({ content_type: 'image/bmp'})
+	// 		})
+			
+	// 		console.log('test', records.length, 'total flagged records found')
+	// 		let unflagged = 0
+
+	// 		for (let index = 0; index < records.length; index++) {
+	// 			const r = records[index]
+
+	// 			interface Score { name: string; value: number }
+
+	// 			const scores: Score[] = [
+	// 				{value: r.nsfw_drawings, name: 'drawings'},
+	// 				{value: r.nsfw_hentai, name: 'hentai'},
+	// 				{value: r.nsfw_neutral, name: 'neutral'},
+	// 				{value: r.nsfw_porn, name: 'porn'},
+	// 				{value: r.nsfw_sexy, name: 'sexy'},
+	// 			]
+
+	// 			const max = scores.reduce( (prev, current)=>{
+	// 				return (prev.value > current.value) ? prev : current
+	// 			})
+				
+	// 			switch (max.name) {
+	// 				case 'porn':
+	// 					case 'sexy':
+	// 						// logger('test', 'https://arweave.net/'+r.txid+' ', max.name+' is max', JSON.stringify(scores))
+	// 						break;
+	// 					case 'hentai':
+	// 						if(max.value > 0.6){
+	// 							// logger('test', 'https://arweave.net/'+r.txid+' ', 'hentai is >0.6', JSON.stringify(scores))
+	// 							break;
+	// 						}
+	// 						//else unflagged
+						
+	// 					default:
+	// 					unflagged++
+	// 					console.log('** NEW CLEAN **', 'https://arweave.net/'+r.txid+' ', JSON.stringify(scores))
+	// 					break;
+	// 			}
+	// 		}
+
+
+	// 		console.log(col.green('new unflagged records ' + unflagged))
+
+
+
+	// 	} catch (e) {
+	// 		console.log('CATCHING',e)
+	// 		console.log(col.green('e.name:' + e.name))
+	// 		console.log(col.green('e.message:' + e.message))
+	// 	}
+	// 	expect(true).to.be.true
+	// }).timeout(0)
+
+	it('tests new rating system for previously unflagged images', async()=>{
 
 		const db = getDbConnection()
 
 		try {
 
 			let records = await db<TxRecord>('txs')
-			.where({flagged: true})
+			.where({flagged: false}).whereNotNull('nsfw_drawings')
 			.andWhere( function(){
 				
 				this.orWhere({ content_type: 'image/jpeg'})
@@ -144,8 +211,8 @@ describe('image-rating ad-hoc tests', ()=> {
 				.orWhere({ content_type: 'image/bmp'})
 			})
 			
-			console.log('test', records.length, 'total flagged records found')
-			let unflagged = 0
+			console.log('test', records.length, 'total unflagged records found')
+			let flagged = 0
 
 			for (let index = 0; index < records.length; index++) {
 				const r = records[index]
@@ -167,24 +234,25 @@ describe('image-rating ad-hoc tests', ()=> {
 				switch (max.name) {
 					case 'porn':
 						case 'sexy':
-							// logger('test', 'https://arweave.net/'+r.txid+' ', max.name+' is max', JSON.stringify(scores))
+							flagged++
+							logger('test', 'https://arweave.net/'+r.txid+' ', max.name+' is max', JSON.stringify(scores))
 							break;
 						case 'hentai':
 							if(max.value > 0.6){
-								// logger('test', 'https://arweave.net/'+r.txid+' ', 'hentai is >0.6', JSON.stringify(scores))
+								flagged++
+								logger('test', 'https://arweave.net/'+r.txid+' ', 'hentai is >0.6', JSON.stringify(scores))
 								break;
 							}
 							//else unflagged
 						
 						default:
-						unflagged++
-						console.log('** NEW CLEAN **', 'https://arweave.net/'+r.txid+' ', JSON.stringify(scores))
+						// console.log('** NEW CLEAN **', 'https://arweave.net/'+r.txid+' ', JSON.stringify(scores))
 						break;
 				}
 			}
 
 
-			console.log(col.green('new unflagged records ' + unflagged))
+			console.log(col.green('newly flagged records ' + flagged))
 
 
 
