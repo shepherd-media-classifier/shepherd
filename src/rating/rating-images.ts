@@ -41,7 +41,7 @@ export const imageRater = async()=>{
 	//max num of images to process at one time
 	const calcMaxImages = (backlog: number) => {
 		if(backlog <= 0) return 0 //sanity
-		if(backlog >= 100) return 100
+		if(backlog >= 50) return 50
 		return backlog
 	}
 

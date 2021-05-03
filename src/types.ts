@@ -6,6 +6,7 @@ CREATE TABLE txs (
 	content_size INTEGER NOT NULL,
 	flagged BOOLEAN,
 	valid_data BOOLEAN,
+	data_reason TEXT,
 	nsfw_porn real,
 	nsfw_sexy real,
 	nsfw_hentai real,
@@ -25,7 +26,7 @@ export interface TxRecord extends TxScanned {
 	readonly id: number
 	flagged: boolean
 	valid_data: boolean
-	data_reason: 'overlarge' | 'partial' | 'timeout' | 'corrupt' | (string & {}) //intellisense hack
+	data_reason: 'overlarge' | 'partial' | 'timeout' | '404' | 'corrupt' | (string & {}) //intellisense hack
 
 	nsfw_porn: number
 	nsfw_sexy: number
