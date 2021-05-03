@@ -190,6 +190,7 @@ export class NsfwTools {
 				await db<TxRecord>('txs').where({txid}).update({
 					flagged: false,
 					valid_data: false,
+					data_reason: 'corrupt',
 					last_update_date: new Date(),
 				})
 
@@ -199,6 +200,7 @@ export class NsfwTools {
 				await db<TxRecord>('txs').where({txid}).update({
 					flagged: false,
 					valid_data: false,
+					data_reason: '404',
 					last_update_date: new Date(),
 				})
 
@@ -206,13 +208,41 @@ export class NsfwTools {
 
 				//TODO: split this out into the different ways to resample/handle errors
 
-				const reason = e.message.split('\n')[1]
-				logger(prefix, 'bad/partial data, "Invalid TF_Status: 3" found, flagging=>true, reason:', reason, contentType, url)
-				await db<TxRecord>('txs').where({txid}).update({
-					flagged: true,
-					valid_data: false,
-					last_update_date: new Date(),
-				})
+				const reason: string = e.message.split('\n')[1]
+				logger(prefix, 'bad/partial data, "Invalid TF_Status: 3" found, reason:', reason, contentType, url)
+
+				if(
+					reason.startsWith('Message: Invalid PNG data, size')
+					|| reason === 'Message: jpeg::Uncompress failed. Invalid JPEG data or crop window.'
+				){
+
+					//TODO: use puppeteer to get partial image, then rate again
+
+				}else if(reason === 'Message: PNG size too large for int: 23622 by 23622'){
+
+					//TODO: png too big, needs tinypng, then rate again
+
+				}else if(
+					reason === 'Message: Input size should match (header_size + row_size * abs_height) but they differ by 2'
+					|| reason.startsWith('Message: Number of channels inherent in the image must be 1, 3 or 4, was')
+				){
+
+					// bad data
+					logger(prefix, 'bad data found', contentType, url)
+					await db<TxRecord>('txs').where({txid}).update({
+						flagged: true,
+						valid_data: false,
+						data_reason: 'corrupt',
+						last_update_date: new Date(),
+					})
+
+				}else{
+
+					logger(prefix, 'UNHANDLED startsWith("Invalid TF_Status: 3") error',JSON.stringify(e))
+					//throw a hissy fit
+					throw e
+
+				}
 
 			}else if(e.message === `Timeout of ${NO_DATA_TIMEOUT}ms exceeded`){
 
