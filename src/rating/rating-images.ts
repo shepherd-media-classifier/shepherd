@@ -35,32 +35,28 @@ export const imageRater = async()=>{
 
 	/* get images with native nsfwjs support: BMP, JPEG, PNG, or GIF */
 	
-	let records = await waitForImages()
-	let backlog = records.length
+	let images = await waitForImages()
+	let backlog = images.length
 
 	//max num of images to process at one time
-	const calcMaxImages = (backlog: number) => {
-		if(backlog <= 0) return 0 //sanity
-		if(backlog >= 50) return 50
-		return backlog
-	}
+	const calcMaxImages = (backlog: number) => (backlog >= 50) ? 50 : backlog
 
 	let maxImages = calcMaxImages(backlog)
 
 	while(true){
 
-		let batch = records.splice(0, maxImages)
-		logger(prefix, `rating ${batch.length} of ${records.length + batch.length} images...`)
+		let batch = images.splice(0, maxImages)
+		logger(prefix, `rating ${batch.length} of ${images.length + batch.length} images...`)
 
 		await Promise.all(batch.map(record => {
 			return NsfwTools.checkImageTxid(record.txid, record.content_type)
 		}))
 
 
-		if(records.length <= 0){
-			records = await waitForImages()
+		if(images.length <= 0){
+			images = await waitForImages()
 		}
 
-		maxImages = calcMaxImages(records.length)
+		maxImages = calcMaxImages(images.length)
 	}
 }

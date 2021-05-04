@@ -7,7 +7,7 @@
  * hentai - hentai and pornographic drawings
  * porn - pornographic images, sexual acts
  * 
- * Supported formats: BMP, JPEG, PNG, or GIF
+ * Supported formats: BMP, JPEG, PNG, or GIF (gif uses different api function)
  */
 
 import { logger } from '../utils/logger'
@@ -18,6 +18,7 @@ import { TxRecord } from '../types'
 import { NO_DATA_TIMEOUT } from '../constants'
 import col from 'ansi-colors'
 import { axiosDataTimeout } from '../utils/axiosDataTimeout'
+import { corruptDataFound, corruptDataFoundMaybe, noDataFound404, oversizedPngFound, partialDataFound, timeoutOccurred } from './mark-bad-txs'
 
 
 if(process.env.NODE_ENV === 'production'){
@@ -80,33 +81,45 @@ export class NsfwTools {
 				fps: 1,
 			})
 
-			console.log(col.red(JSON.stringify(framePredictions)))
+			let flagged = false
 
-			for (const frame of framePredictions) {
+			for(const frame of framePredictions) {
 				const class1 = frame[0].className
 				const prob1 = frame[0].probability
 
 				if(class1 === 'Hentai'){
-					if(prob1 > 0.6){
+					if(prob1 >= 0.6){
 						logger(prefix, 'hentai gif detected', url)
-						return frame;
+						flagged = true
+						break;
 					}
 					logger(prefix, 'hentai < 0.6', url)
 				}
-
+				
 				if(class1 === 'Porn'){
 					logger(prefix, 'porn gif detected', url)
-					return frame
+					flagged = true
+					break;
 				}
-
+				
 				if(class1 === 'Sexy'){
 					logger(prefix, 'sexy gif detected', url)
-					return frame
+					flagged = true
+					break;
 				}
 			}
 
-			logger(prefix, 'gif clean', url)
-			return []
+			if(!flagged){ 
+				logger(prefix, 'gif clean', url)
+			}
+
+			await db<TxRecord>('txs').where({txid}).update({
+				flagged,
+				valid_data: true,
+				//no scores get recorded,
+				last_update_date: new Date(),
+			})
+
 
 		} catch (e) {
 
@@ -114,10 +127,12 @@ export class NsfwTools {
 
 			if(e.response && e.response.status === 404){
 				logger(prefix, 'no data found (404)', url)
+				await noDataFound404(txid)
 			}
 
 			else if(e.message === 'Invalid GIF 87a/89a header.'){
-				logger(prefix, 'bad data found (Invalid GIF 87a/89a header)', url)
+				logger(prefix, 'probable corrupt data found (Invalid GIF 87a/89a header)', url)
+				await corruptDataFoundMaybe(txid)
 			}
 
 			else if(e.message === `Timeout of ${NO_DATA_TIMEOUT}ms exceeded`){
@@ -125,7 +140,7 @@ export class NsfwTools {
 			}
 
 			else{
-				logger(prefix, 'Error processing', url + ' ', e.name, ':', e.message)
+				logger(prefix, 'Error processing gif', url + ' ', e.name, ':', e.message)
 				logger(prefix, 'UNHANDLED', e)
 			}
 		}
@@ -158,11 +173,7 @@ export class NsfwTools {
 			const flagged = (sum > 0.5)
 	
 			if(flagged){
-				logger(prefix,
-					url + ' ', 
-					flagged,
-					JSON.stringify(scores),
-				)
+				logger(prefix, url + ' ', flagged, JSON.stringify(scores))
 			}
 			
 			await db<TxRecord>('txs').where({txid: txid}).update({
@@ -186,77 +197,64 @@ export class NsfwTools {
 				&& (contentType === 'image/bmp' || contentType === 'image/jpeg' || contentType === 'image/png')
 			){
 
-				logger(prefix, 'bad data found', contentType, url)
-				await db<TxRecord>('txs').where({txid}).update({
-					flagged: false,
-					valid_data: false,
-					data_reason: 'corrupt',
-					last_update_date: new Date(),
-				})
+				logger(prefix, 'probable corrupt data found', contentType, url)
+				await corruptDataFoundMaybe(txid)
 
 			}else if(e.response && e.response.status === 404){
 
 				logger(prefix, 'no data found (404)', contentType, url)
-				await db<TxRecord>('txs').where({txid}).update({
-					flagged: false,
-					valid_data: false,
-					data_reason: '404',
-					last_update_date: new Date(),
-				})
+				await noDataFound404(txid)
 
 			}else if(e.message.startsWith('Invalid TF_Status: 3')){
 
-				//TODO: split this out into the different ways to resample/handle errors
+				/* Handle these errors depending on error reason given. */
 
 				const reason: string = e.message.split('\n')[1]
-				logger(prefix, 'bad/partial data, "Invalid TF_Status: 3" found, reason:', reason, contentType, url)
-
+				
 				if(
 					reason.startsWith('Message: Invalid PNG data, size')
 					|| reason === 'Message: jpeg::Uncompress failed. Invalid JPEG data or crop window.'
 				){
 
 					//TODO: use puppeteer to get partial image, then rate again
+					//partial image
+					logger(prefix, 'partial image found', contentType, url)
+					await partialDataFound(txid)
+
 
 				}else if(reason === 'Message: PNG size too large for int: 23622 by 23622'){
 
 					//TODO: png too big, needs tinypng, then rate again
+					//oversized png
+					logger(prefix, 'oversized png found', contentType, url)
+					await oversizedPngFound(txid)
 
 				}else if(
 					reason === 'Message: Input size should match (header_size + row_size * abs_height) but they differ by 2'
 					|| reason.startsWith('Message: Number of channels inherent in the image must be 1, 3 or 4, was')
 				){
 
-					// bad data
+					// unreadable data
 					logger(prefix, 'bad data found', contentType, url)
-					await db<TxRecord>('txs').where({txid}).update({
-						flagged: true,
-						valid_data: false,
-						data_reason: 'corrupt',
-						last_update_date: new Date(),
-					})
+					await corruptDataFound(txid)
 
 				}else{
 
-					logger(prefix, 'UNHANDLED startsWith("Invalid TF_Status: 3") error',JSON.stringify(e))
-					//throw a hissy fit
-					throw e
+					logger(prefix, 'Unhandled "Invalid TF_Status: 3" found. reason:', reason, contentType, url)
+					logger(prefix, 'UNHANDLED', e)
 
 				}
 
 			}else if(e.message === `Timeout of ${NO_DATA_TIMEOUT}ms exceeded`){
 
-				logger(prefix, 'connection timed out *CHECK THIS ERROR* setting flagged=null, valid_data=false', contentType, url)
-				await db<TxRecord>('txs').where({txid}).update({
-					// flagged: false,
-					valid_data: false,
-					last_update_date: new Date(),
-				})
+				logger(prefix, 'connection timed out. check again later', contentType, url)
+				await timeoutOccurred(txid)
 
 			}else{
 
-				logger(prefix, 'Error processing', url, e.name, ':', e.message)
+				logger(prefix, 'Error processing', url + ' ', e.name, ':', e.message)
 				logger(prefix, 'UNHANDLED', e)
+
 			}
 		}
 	}
