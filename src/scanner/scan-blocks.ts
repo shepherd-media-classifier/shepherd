@@ -1,5 +1,5 @@
 import * as Gql from 'ar-gql'
-import { imageTypes, otherTypes, videoTypes } from '../constants'
+import { imageTypes, textTypes, videoTypes } from '../constants'
 import { StateRecord, TxScanned } from '../types'
 import getDbConnection from '../utils/db-connection'
 import { logger } from '../utils/logger'
@@ -12,7 +12,7 @@ const db = getDbConnection()
 interface IGetIdsResults {
 	images: TxScanned[]
 	videos: TxScanned[]
-	others: TxScanned[]
+	texts: TxScanned[]
 }
 
 export const scanBlocks = async (minBlock: number, maxBlock: number): Promise<IGetIdsResults> => {
@@ -98,7 +98,7 @@ export const scanBlocks = async (minBlock: number, maxBlock: number): Promise<IG
 		logger(prefix, `making three scans of ${((maxBlock - minBlock) + 1)} blocks, from block ${minBlock} to ${maxBlock}`)
 		const images = await getRecords(imageTypes)
 		const videos = await getRecords(videoTypes)
-		const others = await getRecords(otherTypes)
+		const texts = await getRecords(textTypes)
 
 		await db<StateRecord>('states')
 			.where({pname: 'scanner_position'})
@@ -108,7 +108,7 @@ export const scanBlocks = async (minBlock: number, maxBlock: number): Promise<IG
 		return {
 			images,
 			videos,
-			others,
+			texts,
 		}
 
 	} catch(e){

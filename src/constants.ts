@@ -6,15 +6,23 @@
  * - Format restrictions: https://docs.clarifai.com/api-guide/data/supported-formats
  */
 
-export const imageTypes = [
+export const supportedTypes = [
 	"image/bmp",
-	"image/gif",
 	"image/jpeg",
 	"image/png",
+	"image/gif",
+]
+
+export const unsupportedTypes = [
 	"image/tiff",
 	"image/webp",
 	"image/x-ms-bmp",
-	"image/svg+xml", // late addition
+	"image/svg+xml",
+]
+
+export const imageTypes = [
+	...supportedTypes,
+	...unsupportedTypes,
 ]
 
 export const videoTypes = [
@@ -33,7 +41,7 @@ export const videoTypes = [
 ]
 
 // maybe do not run any of these through clarifai
-export const otherTypes = [
+export const textTypes = [
 	"text/plain",
 	"application/pdf",
 ]

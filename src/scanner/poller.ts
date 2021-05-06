@@ -68,7 +68,7 @@ const scanner = async()=> {
 				logger(prefix, 
 					'images', res.images.length, 
 					'videos', res.videos.length, 
-					'others', res.others.length,
+					'texts', res.texts.length,
 					'scanner_position', max,
 					'topBlock', topBlock,
 				)
