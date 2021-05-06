@@ -1,20 +1,20 @@
 require('dotenv').config() //first line of entrypoint
 import { logger } from '../utils/logger'
-import { imageRater } from './rating-images'
+import { rater } from './rating-queues'
 
 const prefix = 'rating'
 
 
-const rater = async()=> {
+const ratingMain = async()=> {
 	try {
 		
-		imageRater() 
+		rater() 
 
 
 
 
 	} catch (e) {
-		logger(prefix, 'Error in rater!\t', e.name, ':', e.message)
+		logger(prefix, 'Error in ratingMain!\t', e.name, ':', e.message)
 	}
 }
-rater()
+ratingMain()
