@@ -191,7 +191,9 @@ export class NsfwTools {
 
 
 		} catch (e) {
+
 			/* catch all sorts of bad data */
+
 			if(
 				e.message === 'Expected image (BMP, JPEG, PNG, or GIF), but got unsupported image type'
 				&& (contentType === 'image/bmp' || contentType === 'image/jpeg' || contentType === 'image/png')
@@ -249,6 +251,11 @@ export class NsfwTools {
 
 				logger(prefix, 'connection timed out. check again later', contentType, url)
 				await timeoutOccurred(txid)
+
+			}else if(e.response && e.response.status && e.response.status === 504){
+
+				// error in arweave.net somewhere, not important to us
+				logger(prefix, e.message) //do nothing, record remains in unprocessed queue
 
 			}else{
 
