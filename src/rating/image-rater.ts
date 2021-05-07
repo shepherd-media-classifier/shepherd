@@ -130,13 +130,12 @@ export class NsfwTools {
 				await noDataFound404(txid)
 			}
 
-			else if(e.message === 'Invalid GIF 87a/89a header.'){
-				logger(prefix, 'probable corrupt data found (Invalid GIF 87a/89a header)', url)
-				await corruptDataFoundMaybe(txid)
-			}
-
-			else if(e.message.startsWith('Unknown gif block:')){
-				logger(prefix, 'probable corrupt data found (Unknown gif block: 0xXX)', url)
+			else if(
+				e.message === 'Invalid GIF 87a/89a header.'
+				|| e.message.startsWith('Unknown gif block:')
+				|| e.message.startsWith('Invalid typed array length:')
+			){
+				logger(prefix, `probable corrupt data found (${e.message})`, url)
 				await corruptDataFoundMaybe(txid)
 			}
 
@@ -147,6 +146,7 @@ export class NsfwTools {
 
 			else if(e.message === `Timeout of ${NO_DATA_TIMEOUT}ms exceeded`){
 				logger(prefix, `Timeout of ${NO_DATA_TIMEOUT}ms exceeded`, url)
+				await timeoutOccurred(txid)
 			}
 
 			else{
