@@ -93,7 +93,10 @@ export const rater = async()=>{
 		let vids = vidQueue.splice(0, Math.min(vidQueue.length, BATCH_VIDEO))
 		let others = otherQueue.splice(0, Math.min(otherQueue.length, BATCH_OTHER))
 
-		const total = images.length + gifs.length + vids.length + others.length
+		/**
+		 * Do not check vid && other length until we are handling these queues
+		 */
+		const total = images.length + gifs.length // + vids.length + others.length
 
 		if(total !== 0){
 			//process batch of images
