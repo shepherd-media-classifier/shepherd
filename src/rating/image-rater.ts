@@ -135,7 +135,7 @@ export class NsfwTools {
 				|| e.message.startsWith('Unknown gif block:')
 				|| e.message.startsWith('Invalid typed array length:')
 				|| e.message === 'Invalid block size'
-				|| e.message === 'Frame index out of range'
+				|| e.message === 'Frame index out of range.'
 			){
 				logger(prefix, `gif. probable corrupt data found (${e.message})`, url)
 				await corruptDataFoundMaybe(txid)
