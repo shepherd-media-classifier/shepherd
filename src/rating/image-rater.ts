@@ -134,13 +134,9 @@ export class NsfwTools {
 				e.message === 'Invalid GIF 87a/89a header.'
 				|| e.message.startsWith('Unknown gif block:')
 				|| e.message.startsWith('Invalid typed array length:')
+				|| e.message === 'Invalid block size'
 			){
-				logger(prefix, `probable corrupt data found (${e.message})`, url)
-				await corruptDataFoundMaybe(txid)
-			}
-
-			else if(e.message === 'Invalid block size'){
-				logger(prefix, 'probable corrupt data found (Invalid block size)', url)
+				logger(prefix, `gif. probable corrupt data found (${e.message})`, url)
 				await corruptDataFoundMaybe(txid)
 			}
 

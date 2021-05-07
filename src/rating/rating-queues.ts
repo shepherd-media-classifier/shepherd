@@ -95,19 +95,15 @@ export const rater = async()=>{
 
 		const total = images.length + gifs.length + vids.length + others.length
 
-		if(total === 0){
-			//all queues are empty so wait 30 seconds
-			logger(prefix, 'all queues synced at zero length')
-			await sleep(30000)
-		}else{
+		if(total !== 0){
 			//process batch of images
 			logger(prefix, `processing ${images.length} images of ${imageQueue.length + images.length}`)
 			await Promise.all(images.map(image => NsfwTools.checkImageTxid(image.txid, image.content_type)))
-
+			
 			//process batch of gifs
 			logger(prefix, `processing ${gifs.length} gifs of ${gifQueue.length + gifs.length}`)
 			await Promise.all(gifs.map(gif => NsfwTools.checkGifTxid(gif.txid)))
-
+			
 			//process batch of vids
 			logger(prefix, `processing ${vids.length} vids of ${vidQueue.length + vids.length}`)
 			//TODO: await Promise.all(vids.map(vid => checkVidTxid(vid)))
@@ -115,6 +111,16 @@ export const rater = async()=>{
 			//process batch of others
 			logger(prefix, `processing ${others.length} others of ${otherQueue.length + others.length}`)
 			//TODO: await Promise.all(others.map(other => checkOtherTxid(other)))
+		}else{
+			//all queues are empty so wait 30 seconds
+			logger(prefix, 'all queues synced at zero length')
+			await sleep(30000)
 		}
+
+		//try filling any empty queues
+		if(imageQueue.length === 0) imageQueue = await getImages()
+		if(gifQueue.length === 0) gifQueue = await getGifs()
+		if(vidQueue.length === 0) vidQueue = await getVids()
+		if(otherQueue.length === 0) otherQueue = await getOthers()
 	}
 }
