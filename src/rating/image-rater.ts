@@ -140,6 +140,11 @@ export class NsfwTools {
 				await corruptDataFoundMaybe(txid)
 			}
 
+			else if(e.message === 'Invalid block size'){
+				logger(prefix, 'probable corrupt data found (Invalid block size)', url)
+				await corruptDataFoundMaybe(txid)
+			}
+
 			else if(e.message === `Timeout of ${NO_DATA_TIMEOUT}ms exceeded`){
 				logger(prefix, `Timeout of ${NO_DATA_TIMEOUT}ms exceeded`, url)
 			}
