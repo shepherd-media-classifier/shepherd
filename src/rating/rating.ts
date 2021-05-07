@@ -5,7 +5,7 @@ import { rater } from './rating-queues'
 const prefix = 'rating'
 
 
-const ratingMain = async()=> {
+const main = async()=> {
 	try {
 		
 		rater() 
@@ -14,7 +14,7 @@ const ratingMain = async()=> {
 
 
 	} catch (e) {
-		logger(prefix, 'Error in ratingMain!\t', e.name, ':', e.message)
+		logger(prefix, 'Error in main!\t', e.name, ':', e.message)
 	}
 }
-ratingMain()
+main()
