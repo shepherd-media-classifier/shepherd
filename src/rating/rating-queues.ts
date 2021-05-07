@@ -40,7 +40,7 @@ const getVids = async()=> {
 	.whereIn('content_type', videoTypes)
 
 	const length = records.length
-	logger(prefix, length, 'images found')
+	logger(prefix, length, 'videos found')
 
 	return records
 }
