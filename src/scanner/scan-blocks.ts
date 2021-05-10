@@ -29,6 +29,7 @@ export const scanBlocks = async (minBlock: number, maxBlock: number): Promise<IG
 				tags: [
 					{ name: "Content-Type", values: $mediaTypes}
 				]
+				first: 100
 				after: $cursor
 			) {
 				pageInfo {
