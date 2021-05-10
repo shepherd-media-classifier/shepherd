@@ -14,7 +14,7 @@ const main = async()=> {
 
 
 	} catch (e) {
-		logger(prefix, 'Error in main!\t', e.name, ':', e.message)
+		logger(prefix, 'Unhandled error in main!\t', e.name, ':', e.message)
 	}
 }
 main()

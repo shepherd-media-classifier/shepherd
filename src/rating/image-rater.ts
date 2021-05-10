@@ -88,12 +88,12 @@ export class NsfwTools {
 				const prob1 = frame[0].probability
 
 				if(class1 === 'Hentai'){
-					if(prob1 >= 0.6){
+					if(prob1 >= 0.5){
 						logger(prefix, 'hentai gif detected', url)
 						flagged = true
 						break;
 					}
-					logger(prefix, 'hentai < 0.6', url)
+					logger(prefix, 'hentai < 0.5', url)
 				}
 				
 				if(class1 === 'Porn'){
