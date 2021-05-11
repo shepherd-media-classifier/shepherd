@@ -271,12 +271,14 @@ describe('image-rating ad-hoc tests', ()=> {
 
 			let records = await db<TxRecord>('txs').where({content_type: 'image/gif'})
 			
+			records.splice(0, 600) //skip a few
+
 			console.log('test', records.length, 'gif records found')
 
 			const BATCH = 10
 
-			while(records.length > 0){
-				let gifs = records.splice(0, Math.min(records.length, BATCH))
+			while(records.length > BATCH){
+				let gifs = records.splice(0, BATCH)
 
 				await Promise.all(gifs.map( async(gif)=> {
 
@@ -288,7 +290,7 @@ describe('image-rating ad-hoc tests', ()=> {
 					const newRecord = await db<TxRecord>('txs').where({id: gif.id})
 					const newValue = newRecord[0].flagged
 
-					if(original !== newValue){
+					if(newValue === true){
 						logger('**** TEST ****', 'changed flag to', newValue, 
 						`for https://arweave.net/${gif.txid}`)
 					}

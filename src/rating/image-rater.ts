@@ -82,6 +82,7 @@ export class NsfwTools {
 			})
 
 			let flagged = false
+			let score: {nsfw_hentai?: number, nsfw_porn?: number, nsfw_sexy?: number } = {}
 
 			for(const frame of framePredictions) {
 				const class1 = frame[0].className
@@ -91,20 +92,23 @@ export class NsfwTools {
 					if(prob1 >= 0.5){
 						logger(prefix, 'hentai gif detected', url)
 						flagged = true
+						score.nsfw_hentai = prob1
 						break;
 					}
-					logger(prefix, 'hentai < 0.5', url)
+					// logger(prefix, 'hentai < 0.5', url)
 				}
 				
 				if(class1 === 'Porn'){
 					logger(prefix, 'porn gif detected', url)
 					flagged = true
+					score.nsfw_porn = prob1
 					break;
 				}
 				
 				if(class1 === 'Sexy'){
 					logger(prefix, 'sexy gif detected', url)
 					flagged = true
+					score.nsfw_sexy = prob1
 					break;
 				}
 			}
@@ -113,10 +117,12 @@ export class NsfwTools {
 				logger(prefix, 'gif clean', url)
 			}
 
+			let test = {}
+
 			await db<TxRecord>('txs').where({txid}).update({
 				flagged,
 				valid_data: true,
-				//no scores get recorded,
+				...(true && score), //use some spread trickery to add non-null (or zero value) keys
 				last_update_date: new Date(),
 			})
 
