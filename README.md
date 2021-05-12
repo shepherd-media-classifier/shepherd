@@ -6,16 +6,14 @@ Notes:
 - This is a work in progress. 
 - Expect false positives. The aim is to have zero adult content get through.
 
-## initial set up instructions
 
-### prerequisites
+## prerequisites
 
-1. docker & docker-compose
+1. install docker & docker-compose
 
-2. create .env file and enter *all* required values (see .env.example)
-<!-- - `docker-compose up --build` (add `-d` to detach) -->
+2. create a `.env` file and enter *all* required values (see .env.example)
 
-3. run and install
+## install and run
 
 ```bash
 npm install
