@@ -208,70 +208,65 @@ export class NsfwTools {
 				e.message === 'Expected image (BMP, JPEG, PNG, or GIF), but got unsupported image type'
 				&& (contentType === 'image/bmp' || contentType === 'image/jpeg' || contentType === 'image/png')
 			){
-
 				logger(prefix, 'probable corrupt data found', contentType, url)
 				await corruptDataMaybe(txid)
-
-			}else if(e.response && e.response.status === 404){
-
+			}
+			
+			else if(e.response && e.response.status === 404){
 				logger(prefix, 'no data found (404)', contentType, url)
 				await noDataFound404(txid)
-
-			}else if(e.message.startsWith('Invalid TF_Status: 3')){
+			}
+			
+			else if(e.message.startsWith('Invalid TF_Status: 3')){
 
 				/* Handle these errors depending on error reason given. */
-
 				const reason: string = e.message.split('\n')[1]
 				
 				if(
 					reason.startsWith('Message: Invalid PNG data, size')
 					|| reason === 'Message: jpeg::Uncompress failed. Invalid JPEG data or crop window.'
 				){
-
 					//TODO: use puppeteer to get partial image, then rate again
 					//partial image
 					logger(prefix, 'partial image found', contentType, url)
 					await partialDataFound(txid)
-
-
-				}else if(reason === 'Message: PNG size too large for int: 23622 by 23622'){
-
-					//TODO: png too big, needs tinypng, then rate again
+				}
+				
+				else if(reason === 'Message: PNG size too large for int: 23622 by 23622'){
+					//TODO: png too big, use tinypng, then rate again
 					//oversized png
 					logger(prefix, 'oversized png found', contentType, url)
 					await oversizedPngFound(txid)
-
-				}else if(
+				}
+				
+				else if(
 					reason === 'Message: Input size should match (header_size + row_size * abs_height) but they differ by 2'
 					|| reason.startsWith('Message: Number of channels inherent in the image must be 1, 3 or 4, was')
 				){
-
 					// unreadable data
 					logger(prefix, 'bad data found', contentType, url)
 					await corruptDataConfirmed(txid)
-
-				}else{
-
+				}
+				
+				else{
 					logger(prefix, 'Unhandled "Invalid TF_Status: 3" found. reason:', reason, contentType, url)
 					logger(prefix, 'UNHANDLED', e)
-
 				}
-
-			}else if(e.message === `Timeout of ${NO_DATA_TIMEOUT}ms exceeded`){
-
+			}
+			
+			else if(e.message === `Timeout of ${NO_DATA_TIMEOUT}ms exceeded`){
 				logger(prefix, 'connection timed out. check again later', contentType, url)
 				await timeoutInBatch(txid)
-
-			}else if(e.response && e.response.status && e.response.status === 504){
-
+			}
+			
+			else if(e.response && e.response.status && e.response.status === 504){
 				// error in arweave.net somewhere, not important to us
 				logger(prefix, e.message) //do nothing, record remains in unprocessed queue
-
-			}else{
-
+			}
+			
+			else{
 				logger(prefix, 'Error processing', url + ' ', e.name, ':', e.message)
 				logger(prefix, 'UNHANDLED', e)
-
 			}
 		}
 	}
