@@ -170,17 +170,16 @@ export class NsfwTools {
 			
 			const predictions = await NsfwTools.checkImageUrl(url)
 			
-			//make this data easier to work with 
-			type Scores = { [name in 'Drawing' | 'Hentai' | 'Neutral' | 'Porn' | 'Sexy' ]: number}
-			// type Scores = Record<'Drawing' | 'Hentai' | 'Neutral' | 'Porn' | 'Sexy', number> 
-			let scores: Scores = {Drawing: 0,	Hentai: 0,	Neutral: 0,	Porn: 0,	Sexy: 0}
-			
+			/* our first attempt prediction formula: flagged = (porn + sexy + hentai) > 0.5 */
+
+			//make prediction data easier to work with 
+			type Scores = Record<'Drawing' | 'Hentai' | 'Neutral' | 'Porn' | 'Sexy', number> 
+			let scores: Scores = {'Drawing': 0,	'Hentai': 0, 'Neutral': 0, 'Porn': 0, 'Sexy': 0}
 			for (const prediction of predictions) {
 				scores[prediction.className] = prediction.probability
 			}
-			
-			//calculate overall score. sexy+porn+hentai > 0.5 => flagged
-			let sum = scores.Porn + scores.Sexy + scores.Hentai 
+
+			let sum = scores['Porn'] + scores['Sexy'] + scores['Hentai']
 			const flagged = (sum > 0.5)
 	
 			if(flagged){
@@ -191,11 +190,11 @@ export class NsfwTools {
 				flagged,
 				valid_data: true,
 				
-				nsfw_drawings: scores.Drawing,
-				nsfw_hentai: scores.Hentai,
-				nsfw_neutral: scores.Neutral,
-				nsfw_porn: scores.Porn,
-				nsfw_sexy: scores.Sexy,
+				nsfw_drawings: scores['Drawing'],
+				nsfw_hentai: scores['Hentai'],
+				nsfw_neutral: scores['Neutral'],
+				nsfw_porn: scores['Porn'],
+				nsfw_sexy: scores['Sexy'],
 				
 				last_update_date: new Date(),
 			})
