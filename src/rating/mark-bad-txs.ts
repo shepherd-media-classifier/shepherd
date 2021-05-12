@@ -13,7 +13,7 @@ export const noDataFound404 = async(txid: string)=> {
 
 }
 
-export const corruptDataFound = async(txid: string)=> {
+export const corruptDataConfirmed = async(txid: string)=> {
 	
 	await db<TxRecord>('txs').where({txid}).update({
 		flagged: false,
@@ -24,7 +24,7 @@ export const corruptDataFound = async(txid: string)=> {
 	
 }
 
-export const corruptDataFoundMaybe = async(txid: string)=> {
+export const corruptDataMaybe = async(txid: string)=> {
 	
 	await db<TxRecord>('txs').where({txid}).update({
 		// flagged: false, <= try filetype detection first
@@ -57,7 +57,7 @@ export const oversizedPngFound = async(txid: string)=> {
 	
 }
 
-export const timeoutOccurred = async(txid: string)=> {
+export const timeoutInBatch = async(txid: string)=> {
 
 	await db<TxRecord>('txs').where({txid}).update({
 		// flagged: <= need recheck: may be due to other delay during timeout or data not seeded yet
@@ -67,3 +67,5 @@ export const timeoutOccurred = async(txid: string)=> {
 	})
 	
 }
+
+//TODO: noDataFound

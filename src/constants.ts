@@ -1,9 +1,5 @@
 /**
- * These are all the media types currently supported by Clarifai.
- * 
- * There are other restrictions on these types:
- * - Each image should be less than 20MB
- * - Format restrictions: https://docs.clarifai.com/api-guide/data/supported-formats
+ * Supported types refers to nsfwjs
  */
 
 export const supportedTypes = [
@@ -40,10 +36,12 @@ export const videoTypes = [
 	"video/x-ms-wmv",
 ]
 
-// maybe do not run any of these through clarifai
+// Future use
 export const textTypes = [
 	"text/plain",
 	"application/pdf",
 ]
 
+// axios workaround timeouts
 export const NO_DATA_TIMEOUT = 60000
+export const NO_STREAM_TIMEOUT = 10000

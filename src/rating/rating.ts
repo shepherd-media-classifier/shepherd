@@ -10,9 +10,6 @@ const main = async()=> {
 		
 		rater() 
 
-
-
-
 	} catch (e) {
 		logger(prefix, 'Unhandled error in main!\t', e.name, ':', e.message)
 	}

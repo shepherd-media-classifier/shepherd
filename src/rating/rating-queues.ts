@@ -94,24 +94,24 @@ export const rater = async()=>{
 		let others = otherQueue.splice(0, Math.min(otherQueue.length, BATCH_OTHER))
 
 		/**
-		 * Do not check vid && other length until we are handling these queues
+		 * TEMPORARY. Do not check vids && others length until these queues are handled.
 		 */
 		const total = images.length + gifs.length // + vids.length + others.length
 
 		if(total !== 0){
-			//process batch of images
+			//process a batch of images
 			logger(prefix, `processing ${images.length} images of ${imageQueue.length + images.length}`)
 			await Promise.all(images.map(image => NsfwTools.checkImageTxid(image.txid, image.content_type)))
 			
-			//process batch of gifs
+			//process a batch of gifs
 			logger(prefix, `processing ${gifs.length} gifs of ${gifQueue.length + gifs.length}`)
 			await Promise.all(gifs.map(gif => NsfwTools.checkGifTxid(gif.txid)))
 			
-			//process batch of vids
+			//process a batch of vids
 			logger(prefix, `processing ${vids.length} vids of ${vidQueue.length + vids.length}`)
 			//TODO: await Promise.all(vids.map(vid => checkVidTxid(vid)))
 			
-			//process batch of others
+			//process a batch of others
 			logger(prefix, `processing ${others.length} others of ${otherQueue.length + others.length}`)
 			//TODO: await Promise.all(others.map(other => checkOtherTxid(other)))
 		}else{

@@ -10,8 +10,10 @@ export const logger = (...args: any[]) => {
 	}
 
 	console.log(col.blue(prefix), ...args)
+
+	//outputs a csv file
 	fs.appendFile(
-		'server-logs.log', 
+		'ar-blacklist.log', 
 		"\"" + new Date().toUTCString() + '\",' + prefix + ',' + args.join(',') + EOL,
 		()=>{}
 	)

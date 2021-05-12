@@ -18,7 +18,7 @@ import { TxRecord } from '../types'
 import { NO_DATA_TIMEOUT } from '../constants'
 import col from 'ansi-colors'
 import { axiosDataTimeout } from '../utils/axiosDataTimeout'
-import { corruptDataFound, corruptDataFoundMaybe, noDataFound404, oversizedPngFound, partialDataFound, timeoutOccurred } from './mark-bad-txs'
+import { corruptDataConfirmed, corruptDataMaybe, noDataFound404, oversizedPngFound, partialDataFound, timeoutInBatch } from './mark-bad-txs'
 
 
 if(process.env.NODE_ENV === 'production'){
@@ -64,7 +64,6 @@ export class NsfwTools {
 		const pic = await axiosDataTimeout(url)
 
 		return NsfwTools.checkImage(pic)
-
 	}
 
 	static checkGifTxid = async(txid: string)=> {
@@ -113,9 +112,9 @@ export class NsfwTools {
 				}
 			}
 
-			if(!flagged){ 
-				logger(prefix, 'gif clean', url)
-			}
+			// if(!flagged){ 
+			// 	logger(prefix, 'gif clean', url)
+			// }
 
 			let test = {}
 
@@ -125,7 +124,6 @@ export class NsfwTools {
 				...(true && score), //use some spread trickery to add non-null (or zero value) keys
 				last_update_date: new Date(),
 			})
-
 
 		} catch (e) {
 
@@ -144,12 +142,12 @@ export class NsfwTools {
 				|| e.message === 'Frame index out of range.'
 			){
 				logger(prefix, `gif. probable corrupt data found (${e.message})`, url)
-				await corruptDataFoundMaybe(txid)
+				await corruptDataMaybe(txid)
 			}
 
 			else if(e.message === `Timeout of ${NO_DATA_TIMEOUT}ms exceeded`){
 				logger(prefix, `Timeout of ${NO_DATA_TIMEOUT}ms exceeded`, url)
-				await timeoutOccurred(txid)
+				await timeoutInBatch(txid)
 			}
 
 			else{
@@ -213,7 +211,7 @@ export class NsfwTools {
 			){
 
 				logger(prefix, 'probable corrupt data found', contentType, url)
-				await corruptDataFoundMaybe(txid)
+				await corruptDataMaybe(txid)
 
 			}else if(e.response && e.response.status === 404){
 
@@ -251,7 +249,7 @@ export class NsfwTools {
 
 					// unreadable data
 					logger(prefix, 'bad data found', contentType, url)
-					await corruptDataFound(txid)
+					await corruptDataConfirmed(txid)
 
 				}else{
 
@@ -263,7 +261,7 @@ export class NsfwTools {
 			}else if(e.message === `Timeout of ${NO_DATA_TIMEOUT}ms exceeded`){
 
 				logger(prefix, 'connection timed out. check again later', contentType, url)
-				await timeoutOccurred(txid)
+				await timeoutInBatch(txid)
 
 			}else if(e.response && e.response.status && e.response.status === 504){
 
