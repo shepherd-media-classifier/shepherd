@@ -3,7 +3,7 @@
 Server that creates & maintains a strict adult content filter list.
 
 Notes: 
-- This is a work in progress. Bug reports appreciated :-)
+- This is a work in progress. Bug reports appreciated :-) just open a github issue.
 - Expect false positives. The aim is to have zero adult content get through.
 
 
@@ -11,7 +11,7 @@ Notes:
 
 1. install docker & docker-compose
 
-2. install pm2 globally, and consider running `pm2 save` (I will remove this step later)
+2. install pm2 globally `npm i -g pm2`, and consider running `pm2 save` (I will remove this step later)
 
 3. create a `.env` file and enter *all* required values (see .env.example)
 
