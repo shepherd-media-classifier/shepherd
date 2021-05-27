@@ -21,9 +21,8 @@ import { axiosDataTimeout } from '../utils/axiosDataTimeout'
 import { corruptDataConfirmed, corruptDataMaybe, noDataFound404, oversizedPngFound, partialDataFound, timeoutInBatch } from './mark-bad-txs'
 
 
-if(process.env.NODE_ENV === 'production'){
-	tf.enableProdMode()
-}
+// do this for all envs
+tf.enableProdMode()
 
 const prefix = 'rating'
 
