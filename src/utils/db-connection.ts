@@ -13,8 +13,8 @@ export default () => {
 	const connection = knex({
 		client: 'pg',
 		connection: {
-			host: '127.0.0.1',
-			port: 5444,
+			host: process.env.DB_HOST,
+			port: 5432,
 			user: process.env.DB_USER,
 			password: process.env.DB_PWD,
 			database: 'arblacklist',

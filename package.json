@@ -5,13 +5,12 @@
   "main": "build/index.js",
   "types": "build/index.d.ts",
   "scripts": {
-    "start": "pm2 start ecosystem.config.js",
+    "start": "echo TRY RUNNING docker compose up --build -d",
+    "pm2": "pm2 start ecosystem.config.js",
     "dev": "pm2 start ecosystem.config.js --env development",
     "stop": "pm2 stop ecosystem.config.js",
-    "logs": "pm2 logs",
-    "build": "echo NOT_IMPLEMENTED_YET tsc -p tsconfig.build.json",
-    "preinstall": "docker-compose up --build -d",
-    "uninstall": "docker-compose down --remove-orphans",
+    "db:up": "docker-compose up --build -d && docker-compose logs",
+    "db:down": "docker-compose down --remove-orphans",
     "test": "mocha -r ts-node/register tests/**/*.spec.ts"
   },
   "keywords": [],
