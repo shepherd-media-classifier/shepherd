@@ -38,7 +38,7 @@ export const corruptDataMaybe = async(txid: string)=> {
 export const partialDataFound = async(txid: string)=> {
 	
 	await db<TxRecord>('txs').where({txid}).update({
-		// flagged: <= cannot flag yet!
+		// flagged: <= cannot flag yet! display with puppeteer & rate again
 		valid_data: false,
 		data_reason: 'partial',
 		last_update_date: new Date(),
@@ -49,7 +49,7 @@ export const partialDataFound = async(txid: string)=> {
 export const oversizedPngFound = async(txid: string)=> {
 
 	await db<TxRecord>('txs').where({txid}).update({
-		// flagged: <= cannot flag yet!
+		// flagged: <= cannot flag yet! use tinypng, then rate again
 		valid_data: false,
 		data_reason: 'oversized',
 		last_update_date: new Date(),

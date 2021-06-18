@@ -115,8 +115,6 @@ export class NsfwTools {
 			// 	logger(prefix, 'gif clean', url)
 			// }
 
-			let test = {}
-
 			await db<TxRecord>('txs').where({txid}).update({
 				flagged,
 				valid_data: true,
@@ -139,6 +137,7 @@ export class NsfwTools {
 				|| e.message.startsWith('Invalid typed array length:')
 				|| e.message === 'Invalid block size'
 				|| e.message === 'Frame index out of range.'
+				|| e.message === 'aborted'
 			){
 				logger(prefix, `gif. probable corrupt data found (${e.message})`, url)
 				await corruptDataMaybe(txid)
@@ -225,14 +224,12 @@ export class NsfwTools {
 					reason.startsWith('Message: Invalid PNG data, size')
 					|| reason === 'Message: jpeg::Uncompress failed. Invalid JPEG data or crop window.'
 				){
-					//TODO: use puppeteer to get partial image, then rate again
 					//partial image
 					logger(prefix, 'partial image found', contentType, url)
 					await partialDataFound(txid)
 				}
 				
 				else if(reason === 'Message: PNG size too large for int: 23622 by 23622'){
-					//TODO: png too big, use tinypng, then rate again
 					//oversized png
 					logger(prefix, 'oversized png found', contentType, url)
 					await oversizedPngFound(txid)
@@ -260,7 +257,7 @@ export class NsfwTools {
 			
 			else if(e.response && e.response.status && e.response.status === 504){
 				// error in arweave.net somewhere, not important to us
-				logger(prefix, e.message) //do nothing, record remains in unprocessed queue
+				logger(prefix, e.message, 'will automatically try again later') //do nothing, record remains in unprocessed queue
 			}
 			
 			else{

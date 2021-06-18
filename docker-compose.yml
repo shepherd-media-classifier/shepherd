@@ -1,7 +1,7 @@
 version: '3.7'
 
 services:
-  dbpostgres:
+  pgdb:
     build: 
       context: ./postgres
     volumes: 
@@ -15,13 +15,13 @@ services:
       PGDATA: /var/lib/postgresql/data/pgdata
     restart: always
     # network_mode: host
-  app:
+  servers:
     build: 
       context: .
     environment: 
-      DB_HOST: dbpostgres
+      DB_HOST: pgdb
     depends_on: 
-      - dbpostgres
+      - pgdb
     ports: 
       - '80:80'
       - '3001:3001'
