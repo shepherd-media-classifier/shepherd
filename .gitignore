@@ -7,3 +7,4 @@ NOTES.txt
 .DS_Store
 .vscode/settings.json
 postgres.build
+temp-screencaps/*

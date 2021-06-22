@@ -50,6 +50,8 @@ export const axiosStreamTimeout = async(url: string)=> {
 				cancelToken: source.token,
 				responseType: 'stream',
 			})
+
+			//const stream: IncomingMessage
 			
 			let buffers: Uint8Array[] = []
 	

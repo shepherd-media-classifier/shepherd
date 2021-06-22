@@ -45,3 +45,6 @@ export const textTypes = [
 // axios workaround timeouts
 export const NO_DATA_TIMEOUT = 60000
 export const NO_STREAM_TIMEOUT = 10000
+
+// temp dir for video processing
+export const VID_TMPDIR = './temp-screencaps/'
