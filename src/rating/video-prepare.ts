@@ -36,14 +36,28 @@ export const videoDownload = async(txid: string)=> {
 			
 			const stream: IncomingMessage = data
 			
-			let buffers: Uint8Array[] = []
+			let mimeNotFound = true
+			let filehead = new Uint8Array(0)
 	
-			stream.on('data', (buffer: Uint8Array)=>{
+			stream.on('data', async(chunk: Uint8Array)=>{
 				clearTimeout(timer!)
-				// if(buffer.length < 4100){
-				// 	buffers.push(buffer)
-				// }
-				filewriter.write(buffer)
+
+				if(mimeNotFound){
+					if(filehead.length < 4100){
+						filehead = Buffer.concat([filehead, chunk])
+					} else {
+						mimeNotFound = false
+						const res = await filetype.fromBuffer(filehead)
+						if(res && res.mime.startsWith('video/')){
+							logger(txid, 'found', res.mime, 'in the filehead')
+						} else{
+							logger(txid, 'not a valid video/* file-type')
+							source.cancel()
+						}
+					}
+				}
+					
+				filewriter.write(chunk)
 			})
 	
 			stream.on('end', ()=>{

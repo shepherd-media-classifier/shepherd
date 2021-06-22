@@ -25,9 +25,16 @@ describe('video-prepare test', ()=> {
 		}
 	}).timeout(0)
 
-	// it('tests that file-type can be derived without interupting the download', async()=> {
-		
-	// })
+	it('tests that incorrect file-type can be detected & download aborted', async()=> {
+		const txid = 'rbm6bKvIKhuui9wATaySbLDuRUKq1KLb8qmaihNpsbU' // an image file
+		try {
+			const x = await videoDownload(txid) 
+			
+		} catch (e) {
+			expect(e.message).to.equal('aborted')
+		}
+
+	})
 
 
 })
