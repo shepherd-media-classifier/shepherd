@@ -1,5 +1,8 @@
 FROM node:15
 
+# turn off the nuisance update message 
+RUN npm config set update-notifier false
+
 # create app directory
 WORKDIR /usr/src/app
 
