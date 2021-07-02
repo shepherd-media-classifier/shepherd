@@ -1,6 +1,8 @@
 FROM node:15
 
 # turn off the nuisance update message 
+ARG NO_UPDATE_NOTIFIER=true
+ENV NO_UPDATE_NOTIFIER=true
 RUN npm config set update-notifier false
 
 # create app directory
