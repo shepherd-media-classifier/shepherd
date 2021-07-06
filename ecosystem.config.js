@@ -2,14 +2,14 @@ module.exports = {
   apps : [{
     name: "scanner",
     script: 'node',
-    args: ' -r ts-node/register src/scanner/poller.ts',
+    args: ' -r ts-node/register src/scanner/index.ts',
     env: { 
       NODE_ENV: "production",
     }
   },{
     name: 'rater',
     script: 'node',
-    args: ' -r ts-node/register src/rating/rating.ts',
+    args: ' -r ts-node/register src/rating/index.ts',
     env: { 
       NODE_ENV: "production",
       TF_CPP_MIN_LOG_LEVEL: 2,
@@ -17,7 +17,7 @@ module.exports = {
   },{
     name: 'server',
     script: 'node',
-    args: ' -r ts-node/register src/server/server.ts',
+    args: ' -r ts-node/register src/server/index.ts',
     env: { 
       NODE_ENV: "production",   //port 80
     },
