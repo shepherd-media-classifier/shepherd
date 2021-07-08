@@ -1,10 +1,10 @@
 secret
 node_modules
 .env
-package-lock.json
+# package-lock.json, using `npm ci` in container
 NOTES.txt
 *.log
 .DS_Store
 .vscode/settings.json
-postgres.build
+postgres.build/*
 temp-screencaps/*

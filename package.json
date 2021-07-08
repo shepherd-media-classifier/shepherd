@@ -7,7 +7,7 @@
   "scripts": {
     "start": "echo TRY RUNNING docker compose up --build -d",
     "pm2": "pm2 start ecosystem.config.js",
-    "rater": "pm2 start ecosystem.config.js --only rater",
+    "rater": "pm2 start ecosystem.config.js --only rater && pm2 logs",
     "dev": "pm2 start ecosystem.config.js --env development",
     "stop": "pm2 stop ecosystem.config.js",
     "docker:up": "docker-compose up --build -d && docker-compose logs -f",

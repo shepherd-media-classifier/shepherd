@@ -26,3 +26,5 @@ services:
       - '80:80'
       - '3001:3001'
     restart: always
+    volumes: 
+      - './temp-screencaps:/app/temp-screencaps'

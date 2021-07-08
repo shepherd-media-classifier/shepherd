@@ -5,8 +5,12 @@ ARG NO_UPDATE_NOTIFIER=true
 ENV NO_UPDATE_NOTIFIER=true
 RUN npm config set update-notifier false
 
+# install ffmpeg dependency
+RUN apt update 
+RUN apt install ffmpeg -y
+
 # create app directory
-WORKDIR /usr/src/app
+WORKDIR /app
 
 RUN npm install -g pm2
 # RUN pm2 startup
