@@ -4,7 +4,7 @@ import { logger } from '../utils/logger'
 const db = getDbConnection()
 
 
-const updateDb = async(txid: string, updates: Partial<TxRecord>)=> {
+export const updateDb = async(txid: string, updates: Partial<TxRecord>)=> {
 	try{
 
 		return await db<TxRecord>('txs').where({txid}).update(updates, ['txid'])
@@ -14,7 +14,6 @@ const updateDb = async(txid: string, updates: Partial<TxRecord>)=> {
 		logger(txid, e) // `throw e` does nothing, use return
 	}
 }
-
 
 
 export const noDataFound404 = async(txid: string)=> {

@@ -18,7 +18,7 @@ import { TxRecord } from '../types'
 import { NO_DATA_TIMEOUT } from '../constants'
 import col from 'ansi-colors'
 import { axiosDataTimeout } from '../utils/axiosDataTimeout'
-import { corruptDataConfirmed, corruptDataMaybe, noDataFound404, oversizedPngFound, partialDataFound, timeoutInBatch } from './mark-bad-txs'
+import { corruptDataConfirmed, corruptDataMaybe, noDataFound404, oversizedPngFound, partialDataFound, timeoutInBatch } from './mark-txs'
 
 
 // do this for all envs

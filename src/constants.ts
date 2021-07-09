@@ -48,4 +48,4 @@ export const NO_STREAM_TIMEOUT = 10000
 
 // temp dir for video processing
 export const VID_TMPDIR = './temp-screencaps/'
-export const VID_TMPDIR_MAXSIZE = 2 * 1024 * 1024 * 1024 // 2 GB
+export const VID_TMPDIR_MAXSIZE = 2 * 1024 * 1024 * 1024 // 2 GB <=TODO: should also check actual free disk space

@@ -25,6 +25,7 @@
     "@types/ffmpeg": "^1.0.4",
     "@types/mocha": "^8.2.2",
     "@types/node": "^15.0.2",
+    "@types/rimraf": "^3.0.1",
     "@types/sinon": "^10.0.0",
     "chai": "^4.3.4",
     "cross-env": "^7.0.3",
@@ -46,6 +47,7 @@
     "knex": "^0.95.4",
     "knex-utils": "^4.1.9",
     "nsfwjs": "^2.4.0",
-    "pg": "^8.6.0"
+    "pg": "^8.6.0",
+    "rimraf": "^2.7.1"
   }
 }
