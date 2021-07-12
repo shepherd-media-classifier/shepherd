@@ -3,7 +3,7 @@ import getDbConnection from '../utils/db-connection'
 import { logger } from '../utils/logger'
 import { NsfwTools } from './image-rater'
 import { unsupportedTypes, videoTypes } from '../constants'
-import { checkVid } from './video/video-prepare'
+import { checkInFlightVids } from './video/video-prepare'
 
 const prefix = 'rating'
 const db = getDbConnection()
@@ -109,8 +109,8 @@ export const rater = async()=>{
 			await Promise.all(gifs.map(gif => NsfwTools.checkGifTxid(gif.txid)))
 			
 			//process a batch of vids
-			logger(prefix, `processing ${vids.length} vids of ${vidQueue.length + vids.length}`)
-			await Promise.all(vids.map(vid => checkVid(vid)))
+			// logger(prefix, `processing ${vids.length} vids of ${vidQueue.length + vids.length}`)
+			// await Promise.all(vids.map(vid => checkInFlightVids(vid)))
 			
 			//process a batch of others
 			logger(prefix, `processing ${others.length} others of ${otherQueue.length + others.length}`)
