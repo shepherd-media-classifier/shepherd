@@ -3,7 +3,7 @@ import getDbConnection from '../utils/db-connection'
 import { logger } from '../utils/logger'
 import { NsfwTools } from './image-rater'
 import { unsupportedTypes, videoTypes } from '../constants'
-import { checkVid } from './video/video-prepare'
+import { checkInFlightVids } from './video/video-prepare'
 
 const prefix = 'rating'
 const db = getDbConnection()
@@ -86,35 +86,42 @@ export const rater = async()=>{
 
 	/* loop through each queue interleaving one batch at a time */
 
+	let continueVids = true
+	let vid: TxRecord
+	
 	while(true){
 
 		//splice off a batch from the queue
 		let images = imageQueue.splice(0, Math.min(imageQueue.length, BATCH_IMAGE))
 		let gifs = gifQueue.splice(0, Math.min(gifQueue.length, BATCH_GIF))
-		let vids = vidQueue.splice(0, Math.min(vidQueue.length, BATCH_VIDEO))
 		let others = otherQueue.splice(0, Math.min(otherQueue.length, BATCH_OTHER))
+		if(continueVids){
+			vid = vidQueue.pop() as TxRecord
+		} 
 
 		/**
 		 * TEMPORARY. Do not check vids && others length until these queues are handled.
 		 */
-		const total = images.length + gifs.length // + vids.length + others.length
+		const total = /* images.length + gifs.length + */ vidQueue.length // + others.length
 
 		if(total !== 0){
-			//process a batch of images
-			logger(prefix, `processing ${images.length} images of ${imageQueue.length + images.length}`)
-			await Promise.all(images.map(image => NsfwTools.checkImageTxid(image.txid, image.content_type)))
+			// //process a batch of images
+			// logger(prefix, `processing ${images.length} images of ${imageQueue.length + images.length}`)
+			// await Promise.all(images.map(image => NsfwTools.checkImageTxid(image.txid, image.content_type)))
 			
-			//process a batch of gifs
-			logger(prefix, `processing ${gifs.length} gifs of ${gifQueue.length + gifs.length}`)
-			await Promise.all(gifs.map(gif => NsfwTools.checkGifTxid(gif.txid)))
+			// //process a batch of gifs
+			// logger(prefix, `processing ${gifs.length} gifs of ${gifQueue.length + gifs.length}`)
+			// await Promise.all(gifs.map(gif => NsfwTools.checkGifTxid(gif.txid)))
 			
 			//process a batch of vids
-			logger(prefix, `processing ${vids.length} vids of ${vidQueue.length + vids.length}`)
-			await Promise.all(vids.map(vid => checkVid(vid)))
+			if(continueVids){
+				logger(prefix, `processing 1 video from ${vidQueue.length + 1}`)
+			}
+			continueVids = await checkInFlightVids(vid!)
 			
-			//process a batch of others
-			logger(prefix, `processing ${others.length} others of ${otherQueue.length + others.length}`)
-			//TODO: await Promise.all(others.map(other => checkOtherTxid(other)))
+			// //process a batch of others
+			// logger(prefix, `processing ${others.length} others of ${otherQueue.length + others.length}`)
+			// //TODO: await Promise.all(others.map(other => checkOtherTxid(other)))
 		}else{
 			//all queues are empty so wait 30 seconds
 			logger(prefix, 'all queues synced at zero length')
