@@ -110,7 +110,7 @@ export const videoDownload = async(vid: VidDownloadRecord)=> {
 					} else {
 						mimeNotFound = false
 						const res = await filetype.fromBuffer(filehead)
-						if(!res){
+						if(res === undefined){
 							logger(vid.txid, 'no video file-type:', res)
 							source.cancel()
 							corruptDataConfirmed(vid.txid)
