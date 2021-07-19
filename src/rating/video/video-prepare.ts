@@ -29,7 +29,7 @@ export const checkInFlightVids = async(vid: TxRecord)=> {
 	//check if any finished downloading & process 1 only
 	for (const dl of downloads) {
 		if(dl.complete === 'TRUE'){
-			console.log(dl.txid, 'ready for processing')
+			logger(dl.txid, 'ready for processing')
 			
 			//create screencaps & handle errors
 			let frames: string[]
@@ -43,7 +43,9 @@ export const checkInFlightVids = async(vid: TxRecord)=> {
 					logger(dl.txid, 'ffmpeg: error in screencaps')
 					corruptDataMaybe(dl.txid)
 				}
-				downloads = downloads.filter(d => d.id !== dl.id)
+				//delete the temp files
+				rimraf(`${VID_TMPDIR}${dl.txid}/`, (e)=> e && logger(vid.txid, 'Error deleting temp folder', e))
+				downloads = downloads.filter(d => d !== dl)
 				break;
 			}
 

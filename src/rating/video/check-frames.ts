@@ -23,31 +23,31 @@ export const checkFrames = async(frames: string[], txid: string)=> {
 		
 		if(class1 === 'Hentai'){
 			if(prob1 >= 0.5){
-				logger(prefix, 'hentai video detected', vidUrl)
+				logger(txid, 'hentai video detected', vidUrl)
 				flagged = true
 				score.nsfw_hentai = prob1
 			}
-			logger(prefix, 'hentai < 0.5', vidUrl)
+			logger(txid, 'hentai < 0.5', vidUrl)
 			break;
 		}
 		if(class1 === 'Porn'){
-			logger(prefix, 'porn video detected', vidUrl)
+			logger(txid, 'porn video detected', vidUrl)
 			flagged = true
 			score.nsfw_porn = prob1
 			break;
 		}
 		if(class1 === 'Sexy'){
-			logger(prefix, 'sexy video detected', vidUrl)
+			logger(txid, 'sexy video detected', vidUrl)
 			flagged = true
 			score.nsfw_sexy = prob1
 			break;
 		}
 	}
 	if(!flagged){ 
-		logger(prefix, 'video clean', vidUrl)
+		logger(txid, 'video clean', vidUrl)
 	}
 	if(process.env.NODE_ENV !== 'production'){
-		logger(prefix, flagged, score, vidUrl)
+		logger(txid, flagged, score, vidUrl)
 	}
 
 	return updateDb(txid,{
