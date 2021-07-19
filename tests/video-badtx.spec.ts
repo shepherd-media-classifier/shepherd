@@ -1,6 +1,6 @@
 require('dotenv').config() //first line of entrypoint
 import { expect } from 'chai'
-import { createScreencapsFluentFfmpeg, createScreencaps } from '../src/rating/video/screencaps'
+import { createScreencaps } from '../src/rating/video/screencaps'
 import { VidDownloadRecord, videoDownload } from '../src/rating/video/video-prepare'
 import col from 'ansi-colors'
 
@@ -21,7 +21,6 @@ describe('video bad tx handling tests', ()=> {
 			if(badData.complete === 'ERROR') throw new Error(badData.txid + ' download failed')
 			//we're expecting an ffmpeg error in createScreencaps
 			const frames = await createScreencaps(badData.txid) 
-			expect(true).false // <= we should not get here
 		}catch(e){
 			expect(e.message).eq('corrupt video data')
 		}
@@ -41,9 +40,8 @@ describe('video bad tx handling tests', ()=> {
 			if(badData.complete === 'ERROR') throw new Error(badData.txid + ' download failed')
 			//we're expecting an ffmpeg error in createScreencaps
 			const frames = await createScreencaps(badData.txid) 
-			expect(true).false // <= we should not get here
 		}catch(e){
-			expect(e.code).eq(69)
+			expect(e.code).eq(69 || 1)
 		}
 	}).timeout(0)
 
