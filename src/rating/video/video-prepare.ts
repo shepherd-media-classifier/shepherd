@@ -2,11 +2,10 @@ import axios from 'axios'
 import { IncomingMessage } from 'http'
 import { NO_STREAM_TIMEOUT, VID_TMPDIR, VID_TMPDIR_MAXSIZE } from '../../constants'
 import fs from 'fs'
-import ffmpeg from 'ffmpeg'
 import filetype from 'file-type'
 import { logger } from '../../utils/logger'
 import { TxRecord } from '../../types'
-import { corruptDataConfirmed, noDataFound, wrongMimeType } from '../mark-txs'
+import { corruptDataConfirmed, corruptDataMaybe, noDataFound, wrongMimeType } from '../mark-txs'
 import { createScreencaps } from './screencaps'
 import { checkFrames } from './check-frames'
 import rimraf from 'rimraf'
@@ -32,11 +31,24 @@ export const checkInFlightVids = async(vid: TxRecord)=> {
 		if(dl.complete === 'TRUE'){
 			console.log(dl.txid, 'ready for processing')
 			
-			//create screencaps
-			const frames = await createScreencaps(dl.txid)
+			//create screencaps & handle errors
+			let frames: string[]
+			try{
+				frames = await createScreencaps(dl.txid)
+			}catch(e){
+				if(e.message === 'corrupt video data'){
+					logger(dl.txid, 'ffprobe: corrupt video data')
+					corruptDataConfirmed(dl.txid)
+				}else{
+					logger(dl.txid, 'ffmpeg: error in screencaps')
+					corruptDataMaybe(dl.txid)
+				}
+				downloads = downloads.filter(d => d.id !== dl.id)
+				break;
+			}
 
 			//let tfjs run through the screencaps & write to db
-			await checkFrames(frames, vid.txid)
+			await checkFrames(frames!, vid.txid)
 			
 			//delete the temp files
 			rimraf(`${VID_TMPDIR}${dl.txid}/`, (e)=> e && logger(vid.txid, 'Error deleting temp folder', e))
@@ -110,7 +122,7 @@ export const videoDownload = async(vid: VidDownloadRecord)=> {
 					} else {
 						mimeNotFound = false
 						const res = await filetype.fromBuffer(filehead)
-						if(!res){
+						if(res === undefined){
 							logger(vid.txid, 'no video file-type:', res)
 							source.cancel()
 							corruptDataConfirmed(vid.txid)
