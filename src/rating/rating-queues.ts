@@ -95,29 +95,28 @@ export const rater = async()=>{
 		let images = imageQueue.splice(0, Math.min(imageQueue.length, BATCH_IMAGE))
 		let gifs = gifQueue.splice(0, Math.min(gifQueue.length, BATCH_GIF))
 		let others = otherQueue.splice(0, Math.min(otherQueue.length, BATCH_OTHER))
+
+		//videos have their own internal queue system
 		if(continueVids){
+			logger(prefix, `processing 1 video from ${vidQueue.length + 1}`)
 			vid = vidQueue.pop() as TxRecord
 		} 
+		continueVids = await checkInFlightVids(vid!)
+
 
 		/**
-		 * TEMPORARY. Do not check vids && others length until these queues are handled.
+		 * TEMPORARY. Do not check others.length until this queue is handled.
 		 */
-		const total = /* images.length + gifs.length + */ vidQueue.length // + others.length
+		const total = images.length + gifs.length + vidQueue.length // + others.length
 
 		if(total !== 0){
-			// //process a batch of images
-			// logger(prefix, `processing ${images.length} images of ${imageQueue.length + images.length}`)
-			// await Promise.all(images.map(image => NsfwTools.checkImageTxid(image.txid, image.content_type)))
+			//process a batch of images
+			logger(prefix, `processing ${images.length} images of ${imageQueue.length + images.length}`)
+			await Promise.all(images.map(image => NsfwTools.checkImageTxid(image.txid, image.content_type)))
 			
-			// //process a batch of gifs
-			// logger(prefix, `processing ${gifs.length} gifs of ${gifQueue.length + gifs.length}`)
-			// await Promise.all(gifs.map(gif => NsfwTools.checkGifTxid(gif.txid)))
-			
-			//process a batch of vids
-			if(continueVids){
-				logger(prefix, `processing 1 video from ${vidQueue.length + 1}`)
-			}
-			continueVids = await checkInFlightVids(vid!)
+			//process a batch of gifs
+			logger(prefix, `processing ${gifs.length} gifs of ${gifQueue.length + gifs.length}`)
+			await Promise.all(gifs.map(gif => NsfwTools.checkGifTxid(gif.txid)))
 			
 			// //process a batch of others
 			// logger(prefix, `processing ${others.length} others of ${otherQueue.length + others.length}`)
