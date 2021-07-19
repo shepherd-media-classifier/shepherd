@@ -13,9 +13,9 @@
     "docker:up": "docker-compose up --build -d && docker-compose logs -f",
     "docker:down": "docker-compose down --remove-orphans",
     "logs": "docker-compose logs -f --tail=15",
-    "test:vid": "mocha -r ts-node/register tests/video-prepare.spec.ts",
-    "test:vidbad": "mocha -r ts-node/register tests/video-badtx.spec.ts",
-    "test": "mocha -r ts-node/register tests/**/*.spec.ts"
+    "test:vid": "cross-env NODE_ENV=test mocha -r ts-node/register tests/video-prepare.spec.ts",
+    "test:vidbad": "cross-env NODE_ENV=test mocha -r ts-node/register tests/video-badtx.spec.ts",
+    "test": "cross-env NODE_ENV=test mocha -r ts-node/register tests/**/*.spec.ts"
   },
   "keywords": [],
   "author": "Ros McMahon <ros@arweave.org>",
