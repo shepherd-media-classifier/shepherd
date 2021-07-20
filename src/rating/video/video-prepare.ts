@@ -65,7 +65,7 @@ export const checkInFlightVids = async(inputVid: TxRecord[])=> {
 
 	if(inputVid.length === 1){
 		const vid = inputVid[0]
-		if(downloads.length < 10 && downloadsSize() < VID_TMPDIR_MAXSIZE){
+		if(downloads.length < 5 && downloadsSize() < VID_TMPDIR_MAXSIZE){
 			let dl = Object.assign({complete: 'FALSE'}, vid) //new VidDownloadRecord
 			downloads.push(dl)
 			//call async as potentially large download
