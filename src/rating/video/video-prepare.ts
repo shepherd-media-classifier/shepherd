@@ -50,7 +50,7 @@ export const checkInFlightVids = async(inputVid: TxRecord[])=> {
 			}
 
 			//let tfjs run through the screencaps & write to db
-			if(frames.length === 0) throw Error('No frames found. ' + dl.txid + ' : ' + frames)
+			if(frames.length < 2) throw Error('No frames found. ' + dl.txid + ' : ' + frames)
 			await checkFrames(frames, dl.txid)
 			
 			//delete the temp files
