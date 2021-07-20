@@ -35,7 +35,7 @@ export const checkInFlightVids = async(inputVid: TxRecord[])=> {
 		}
 	}
 	
-	//check if any finished downloading & process 1 only
+	//check if any finished downloading & process 
 	for (const dl of downloads) {
 		if(dl.complete === 'TRUE'){
 			logger(dl.txid, 'ready for processing')
@@ -49,12 +49,12 @@ export const checkInFlightVids = async(inputVid: TxRecord[])=> {
 					logger(dl.txid, 'ffprobe: corrupt video data')
 					corruptDataConfirmed(dl.txid)
 				}else{
-					logger(dl.txid, 'ffmpeg: error in screencaps')
+					logger(dl.txid, 'ffmpeg: error creating screencaps')
 					corruptDataMaybe(dl.txid)
 				}
 				//delete the temp files
 				cleanUpDownload(dl)
-				break;
+				continue;
 			}
 
 			//let tfjs run through the screencaps & write to db
@@ -68,7 +68,7 @@ export const checkInFlightVids = async(inputVid: TxRecord[])=> {
 			//delete the temp files
 			cleanUpDownload(dl)
 			
-			break; //process 1 only
+			// break; //process 1 only
 		}
 	}
 
