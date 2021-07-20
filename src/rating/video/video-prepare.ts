@@ -167,22 +167,23 @@ export const videoDownload = async(vid: VidDownloadRecord)=> {
 				})
 				
 				vid.complete = 'ERROR'
-				reject(e)
+				e.message === 'aborted' ? resolve(true) : reject(e)
 			})
 			
 		}catch(e){
 			if(timer){
 				clearTimeout(timer)
 			}
+			vid.complete = 'ERROR'
+			filewriter.end()
 			if(e.message === 'Request failed with status code 404'){
 				logger(vid.txid, 'Error 404', e.name, ':', e.message)
 				noDataFound404(vid.txid)
+				resolve(true)
 			}else{
 				logger(vid.txid, 'UNHANDLED ERROR in videoDownload', e.name, ':', e.message)
+				reject(e)
 			}
-			vid.complete = 'ERROR'
-			filewriter.end()
-			reject(e)
 		}
 	})//end Promise
 }
