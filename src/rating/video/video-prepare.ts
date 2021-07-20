@@ -19,7 +19,7 @@ let downloads: VidDownloadRecord[] = []
 
 const downloadsSize = ()=> downloads.reduce((acc, curr)=> acc + curr.content_size, 0)
 
-export const checkInFlightVids = async(vid: TxRecord)=> {
+export const checkInFlightVids = async(inputVid: TxRecord[])=> {
 	
 	/* Check previous downloads */
 	
@@ -32,7 +32,7 @@ export const checkInFlightVids = async(vid: TxRecord)=> {
 			logger(dl.txid, 'ready for processing')
 			
 			//create screencaps & handle errors
-			let frames: string[]
+			let frames: string[] = []
 			try{
 				frames = await createScreencaps(dl.txid)
 			}catch(e){
@@ -44,16 +44,17 @@ export const checkInFlightVids = async(vid: TxRecord)=> {
 					corruptDataMaybe(dl.txid)
 				}
 				//delete the temp files
-				rimraf(`${VID_TMPDIR}${dl.txid}/`, (e)=> e && logger(vid.txid, 'Error deleting temp folder', e))
+				rimraf(`${VID_TMPDIR}${dl.txid}/`, (e)=> e && logger(dl.txid, 'Error deleting temp folder', e))
 				downloads = downloads.filter(d => d !== dl)
 				break;
 			}
 
 			//let tfjs run through the screencaps & write to db
-			await checkFrames(frames!, vid.txid)
+			if(frames.length === 0) throw Error('No frames found. ' + dl.txid + ' : ' + frames)
+			await checkFrames(frames, dl.txid)
 			
 			//delete the temp files
-			rimraf(`${VID_TMPDIR}${dl.txid}/`, (e)=> e && logger(vid.txid, 'Error deleting temp folder', e))
+			rimraf(`${VID_TMPDIR}${dl.txid}/`, (e)=> e && logger(dl.txid, 'Error deleting temp folder', e))
 			downloads = downloads.filter(d => d !== dl)
 			
 			break; //process 1 only
@@ -62,18 +63,23 @@ export const checkInFlightVids = async(vid: TxRecord)=> {
 
 	/* Start downloading the next video if we have enough room */
 
-	if(downloads.length < 10 && downloadsSize() < VID_TMPDIR_MAXSIZE){
-		let dl = Object.assign({complete: 'FALSE'}, vid) //new VidDownloadRecord
-		downloads.push(dl)
-		//call async as potentially large download
-		videoDownload( dl ).then( (res)=> {
-			logger(dl.txid, 'finished downloading', res)
-		})
-
-		logger(vid.txid, 'downloading video', downloadsSize(), '/', VID_TMPDIR_MAXSIZE, `${downloads.length}/10`)
-		return (downloads.length < 10)
+	if(inputVid.length === 1){
+		const vid = inputVid[0]
+		if(downloads.length < 10 && downloadsSize() < VID_TMPDIR_MAXSIZE){
+			let dl = Object.assign({complete: 'FALSE'}, vid) //new VidDownloadRecord
+			downloads.push(dl)
+			//call async as potentially large download
+			videoDownload( dl ).then( (res)=> {
+				logger(dl.txid, 'finished downloading', res)
+			})
+	
+			logger(vid.txid, 'downloading video', downloadsSize(), '/', VID_TMPDIR_MAXSIZE, `${downloads.length}/10`)
+			return (downloads.length < 10)
+		} else{
+			return false
+		}
 	}
-	return false
+	return true
 }
 
 

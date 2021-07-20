@@ -87,7 +87,7 @@ export const rater = async()=>{
 	/* loop through each queue interleaving one batch at a time */
 
 	let continueVids = true
-	let vid: TxRecord
+	let vid: TxRecord[] = [] // just one record
 	
 	while(true){
 
@@ -98,16 +98,20 @@ export const rater = async()=>{
 
 		//videos have their own internal queue system
 		if(continueVids){
-			logger(prefix, `processing 1 video from ${vidQueue.length + 1}`)
-			vid = vidQueue.pop() as TxRecord
+			if(vidQueue.length > 0){
+				vid = [vidQueue.pop() as TxRecord]
+				logger(prefix, `processing 1 video from ${vidQueue.length + 1}`)
+			}else{
+				vid = []
+			}
 		} 
-		continueVids = await checkInFlightVids(vid!)
+		continueVids = await checkInFlightVids(vid)
 
 
 		/**
 		 * TEMPORARY. Do not check others.length until this queue is handled.
 		 */
-		const total = images.length + gifs.length + vidQueue.length // + others.length
+		const total = images.length + gifs.length // + others.length
 
 		if(total !== 0){
 			//process a batch of images
@@ -121,6 +125,9 @@ export const rater = async()=>{
 			// //process a batch of others
 			// logger(prefix, `processing ${others.length} others of ${otherQueue.length + others.length}`)
 			// //TODO: await Promise.all(others.map(other => checkOtherTxid(other)))
+		}else if(continueVids){
+			//do not sleep
+			logger(prefix, 'images synced. continuing vids')
 		}else{
 			//all queues are empty so wait 30 seconds
 			logger(prefix, 'all queues synced at zero length')
