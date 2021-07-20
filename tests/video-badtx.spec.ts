@@ -55,7 +55,30 @@ describe('video bad tx handling tests', ()=> {
 			//we're expecting an ffmpeg error in createScreencaps
 			const frames = await createScreencaps(badData.txid) 
 		}catch(e){
+			console.log(col.red(e))
 			expect(e.code).oneOf([1,69])
+		}
+	}).timeout(0)
+
+	it('_9dmb5AqdOAPp2sIcY-zlFCA1QOMCJzI2yvFzYa2Lgo: no screencaps ?', async()=>{
+		//@ts-ignore
+		const badData: VidDownloadRecord = {
+			complete: 'FALSE',
+			content_size: 697439,
+			// txid: '_9dmb5AqdOAPp2sIcY-zlFCA1QOMCJzI2yvFzYa2Lgo' //no caps
+			txid: 'aaiPfnqmrVhP2dGpTp4IUaP6yMEzVRzIjz8ycAGOPls' //another no caps one 
+		}
+		try{
+			const res = await videoDownload(badData)
+			while(badData.complete === 'FALSE'){ await sleep(500) }
+			if(badData.complete === 'ERROR') throw new Error(badData.txid + ' download failed')
+			//we're expecting an ffmpeg error in createScreencaps
+			const frames = await createScreencaps(badData.txid) 
+			console.log(col.green(frames.toString()))
+			expect(frames.length).greaterThan(2)
+		}catch(e){
+			console.log(col.red(e))
+			expect(true).false
 		}
 	}).timeout(0)
 

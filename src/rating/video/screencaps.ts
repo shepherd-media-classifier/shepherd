@@ -22,9 +22,9 @@ export const createScreencaps = async(txid: string)=> {
 		}
 
 		const duration = video.metadata.duration!.seconds
-		// if(duration > 1){
-		// 	video.setVideoStartTime(1)
-		// }
+		if(duration > 1){
+			video.setVideoStartTime(1)
+		}
 		const frames = await video.fnExtractFrameToJPG(folderpath,{
 			every_n_seconds: 10,
 		})

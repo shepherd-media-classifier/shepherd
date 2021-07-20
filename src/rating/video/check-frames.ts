@@ -9,6 +9,8 @@ const prefix = 'rating'
 
 export const checkFrames = async(frames: string[], txid: string)=> {
 	const videopath = frames.shift()
+	if(frames.length === 0) throw new Error(txid + ' Error: no frames to check')
+
 	const vidUrl = 'https://arweave.net/' + videopath!.split('/').pop()
 
 	//go through caps. break if nsfw found

@@ -58,8 +58,11 @@ export const checkInFlightVids = async(inputVid: TxRecord[])=> {
 			}
 
 			//let tfjs run through the screencaps & write to db
-			if(frames.length < 2) throw Error('No frames found. ' + dl.txid + ' : ' + frames)
-			await checkFrames(frames, dl.txid)
+			if(frames.length < 2){
+				logger(dl.txid, 'ERROR: No frames to process!')
+			}else{ 
+				await checkFrames(frames, dl.txid)
+			}
 			
 			//delete the temp files
 			cleanUpDownload(dl)
@@ -73,7 +76,7 @@ export const checkInFlightVids = async(inputVid: TxRecord[])=> {
 	if(inputVid.length === 1){
 		const vid = inputVid[0]
 		if(downloads.length < 10 && downloadsSize() < VID_TMPDIR_MAXSIZE){
-			let dl = Object.assign({complete: 'FALSE'}, vid) //new VidDownloadRecord
+			let dl: VidDownloadRecord = Object.assign({complete: 'FALSE'}, vid) 
 			downloads.push(dl)
 			//call async as potentially large download
 			videoDownload( dl ).then( (res)=> {
@@ -154,18 +157,13 @@ export const videoDownload = async(vid: VidDownloadRecord)=> {
 			})
 	
 			stream.on('end', ()=>{
-				// logger(vid.txid, 'END')
 				filewriter.end()
 				vid.complete = 'TRUE'
 				resolve(true)
 			})
 	
 			stream.on('error', (e: Error)=>{
-				// logger(vid.txid, 'Stream closing with error:', e.message)
-				filewriter.end(()=>{
-					rimraf(folderpath, (e)=> e && logger(vid.txid, 'Error deleting temp folder', e))
-				})
-				
+				filewriter.end()
 				vid.complete = 'ERROR'
 				e.message === 'aborted' ? resolve(true) : reject(e)
 			})
