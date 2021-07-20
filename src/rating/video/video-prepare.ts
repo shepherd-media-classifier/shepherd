@@ -5,7 +5,7 @@ import fs from 'fs'
 import filetype from 'file-type'
 import { logger } from '../../utils/logger'
 import { TxRecord } from '../../types'
-import { corruptDataConfirmed, corruptDataMaybe, noDataFound, wrongMimeType } from '../mark-txs'
+import { corruptDataConfirmed, corruptDataMaybe, noDataFound, noDataFound404, wrongMimeType } from '../mark-txs'
 import { createScreencaps } from './screencaps'
 import { checkFrames } from './check-frames'
 import rimraf from 'rimraf'
@@ -19,12 +19,21 @@ let downloads: VidDownloadRecord[] = []
 
 const downloadsSize = ()=> downloads.reduce((acc, curr)=> acc + curr.content_size, 0)
 
+const cleanUpDownload = (dl: VidDownloadRecord)=> {
+	rimraf(VID_TMPDIR + dl.txid, (e)=> e && logger(dl.txid, 'Error deleting temp folder', e))
+	downloads = downloads.filter(d => d !== dl)
+}
+
 export const checkInFlightVids = async(inputVid: TxRecord[])=> {
 	
 	/* Check previous downloads */
 	
 	//cleanup aborted/errored downloads
-	downloads = downloads.filter(dl => dl.complete !== 'ERROR')
+	for (const dl of downloads) {
+		if(dl.complete === 'ERROR'){
+			cleanUpDownload(dl)
+		}
+	}
 	
 	//check if any finished downloading & process 1 only
 	for (const dl of downloads) {
@@ -44,8 +53,7 @@ export const checkInFlightVids = async(inputVid: TxRecord[])=> {
 					corruptDataMaybe(dl.txid)
 				}
 				//delete the temp files
-				rimraf(`${VID_TMPDIR}${dl.txid}/`, (e)=> e && logger(dl.txid, 'Error deleting temp folder', e))
-				downloads = downloads.filter(d => d !== dl)
+				cleanUpDownload(dl)
 				break;
 			}
 
@@ -54,8 +62,7 @@ export const checkInFlightVids = async(inputVid: TxRecord[])=> {
 			await checkFrames(frames, dl.txid)
 			
 			//delete the temp files
-			rimraf(`${VID_TMPDIR}${dl.txid}/`, (e)=> e && logger(dl.txid, 'Error deleting temp folder', e))
-			downloads = downloads.filter(d => d !== dl)
+			cleanUpDownload(dl)
 			
 			break; //process 1 only
 		}
@@ -65,7 +72,7 @@ export const checkInFlightVids = async(inputVid: TxRecord[])=> {
 
 	if(inputVid.length === 1){
 		const vid = inputVid[0]
-		if(downloads.length < 5 && downloadsSize() < VID_TMPDIR_MAXSIZE){
+		if(downloads.length < 10 && downloadsSize() < VID_TMPDIR_MAXSIZE){
 			let dl = Object.assign({complete: 'FALSE'}, vid) //new VidDownloadRecord
 			downloads.push(dl)
 			//call async as potentially large download
@@ -164,9 +171,14 @@ export const videoDownload = async(vid: VidDownloadRecord)=> {
 			})
 			
 		}catch(e){
-			logger(vid.txid, 'ERROR IN videoDownload', e.name, ':', e.message)
 			if(timer){
 				clearTimeout(timer)
+			}
+			if(e.message === 'Request failed with status code 404'){
+				logger(vid.txid, 'Error 404', e.name, ':', e.message)
+				noDataFound404(vid.txid)
+			}else{
+				logger(vid.txid, 'UNHANDLED ERROR in videoDownload', e.name, ':', e.message)
 			}
 			vid.complete = 'ERROR'
 			filewriter.end()

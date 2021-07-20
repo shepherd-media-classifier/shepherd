@@ -13,6 +13,7 @@
     "pm2:stop": "pm2 stop ecosystem.config.js",
     "docker:up": "docker-compose up --build -d && docker-compose logs -f",
     "docker:down": "docker-compose down --remove-orphans",
+    "docker:rebuild": "npm run docker:down && npm run docker:up",
     "docker:psql": "docker exec -it ar-blacklist_pgdb_1 psql -U postgres arblacklist",
     "logs": "docker-compose logs -f --tail=15",
     "test:vid": "cross-env NODE_ENV=test mocha -r ts-node/register tests/video-prepare.spec.ts",

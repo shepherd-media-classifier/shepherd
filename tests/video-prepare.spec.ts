@@ -115,6 +115,7 @@ describe('video-prepare tests', ()=> {
 			{ txid: 'a8A07H3ipRSOymPTr2WLOu91GbMpNvuXonAuewksAJc', content_type: 'video/mp4', content_size: 123 },
 			{ txid: 'vuVms1UdvCo21fHHMzdU8rL4gAz7U02icpTSyMjnsb4', content_type: 'video/mp4', content_size: 123 },
 			{ txid: 'rZi26DUvSbtRejfxrdIUb04bhKcK-mWtMZDlMViZBjE', content_type: 'video/mp4', content_size: 123 },
+			{ txid: 'SxP57BAAiZB0WEipA0_LtyQJ0SY51DwI4vE4N03ykJ0', content_type: 'video/mp4', content_size: 123 }, // 404
 			{ txid: 'elpBavBac2bMYEPSXYFUd5vvnzd0yTMVirNbWkhEECI', content_type: 'video/mp4', content_size: 123 },
 			{ txid: 'paL_F_eLx4g8u_T2pm8XaB3HdBt-kk9z72hQ8g9u74s', content_type: 'video/mp4', content_size: 123 },
 			{ txid: 'B3-nchXLEDW49vTgR6IHIss0CIYqWE0fNOaVljj7mys', content_type: 'video/mp4', content_size: 123 },

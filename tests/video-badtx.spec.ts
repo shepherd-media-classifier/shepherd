@@ -26,11 +26,25 @@ describe('video bad tx handling tests', ()=> {
 		}
 	}).timeout(0)
 
+	it('SxP57BAAiZB0WEipA0_LtyQJ0SY51DwI4vE4N03ykJ0: expect error 404', async()=>{
+		//@ts-ignore
+		const badData: VidDownloadRecord = {
+			complete: 'FALSE',
+			content_size: 0,
+			txid: 'SxP57BAAiZB0WEipA0_LtyQJ0SY51DwI4vE4N03ykJ0', // error 404
+		}
+		try{
+			const res = await videoDownload(badData)
+		}catch(e){
+			expect(e.message).eq('Request failed with status code 404')
+		}
+	}).timeout(0)
+
 	it('2Q5OE8QdmneyEnOMuxTlv04Q7PFezfSDXtaFqjI93CM: ffmpeg fell over creating screencaps', async()=>{
 		//@ts-ignore
 		const badData: VidDownloadRecord = {
 			complete: 'FALSE',
-			content_size: 262144,
+			content_size: 502775,
 			// txid: 'nSX3Qaz-r1NF2dJ4Xh-pMrD6VNt_5wmtu6AgezO3h9U', //good tx
 			txid: '2Q5OE8QdmneyEnOMuxTlv04Q7PFezfSDXtaFqjI93CM', //partial file
 		}
@@ -41,7 +55,7 @@ describe('video bad tx handling tests', ()=> {
 			//we're expecting an ffmpeg error in createScreencaps
 			const frames = await createScreencaps(badData.txid) 
 		}catch(e){
-			expect(e.code).eq(69 || 1)
+			expect(e.code).oneOf([1,69])
 		}
 	}).timeout(0)
 
