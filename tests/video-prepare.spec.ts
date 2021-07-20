@@ -27,82 +27,82 @@ describe('video-prepare tests', ()=> {
 		txid: 'rbm6bKvIKhuui9wATaySbLDuRUKq1KLb8qmaihNpsbU', // an image file
 	}
 
-	// it('1. videoDownload: downloads a video (smallvid)', async()=> {
-	// 	//@ts-ignore
-	// 	const smallvid: VidDownloadRecord = {
-	// 		complete: 'FALSE',
-	// 		content_size: 1053651,
-	// 		txid: smalltx,
-	// 		content_type: 'video/mp4',
-	// 	}
-	// 	const res = await videoDownload(smallvid)
-	// 	while(smallvid.complete === 'FALSE') await sleep(500)
-	// 	expect(res).to.be.true
-	// }).timeout(0)
+	it('1. videoDownload: downloads a video (smallvid)', async()=> {
+		//@ts-ignore
+		const smallvid: VidDownloadRecord = {
+			complete: 'FALSE',
+			content_size: 1053651,
+			txid: smalltx,
+			content_type: 'video/mp4',
+		}
+		const res = await videoDownload(smallvid)
+		while(smallvid.complete === 'FALSE') await sleep(500)
+		expect(res).to.be.true
+	}).timeout(0)
 
-	// it('2. videoDownload: times out when no first byte', async()=> {
-	// 	try {
-	// 		const x = await videoDownload(nodata) 
-	// 	} catch (e) {
-	// 		expect(e.message).to.equal('aborted')//`Timeout of ${NO_STREAM_TIMEOUT}ms exceeded`)
-	// 	}
-	// }).timeout(0)
+	it('2. videoDownload: times out when no first byte', async()=> {
+		try {
+			const x = await videoDownload(nodata) 
+		} catch (e) {
+			expect(e.message).to.equal('aborted')//`Timeout of ${NO_STREAM_TIMEOUT}ms exceeded`)
+		}
+	}).timeout(0)
 
-	// it('3. videoDownload: incorrect file-type can be detected & download aborted', async()=> {
-	// 	try {
-	// 		const x = await videoDownload(notvid) 
-	// 	} catch (e) {
-	// 		expect(e.message).to.equal('aborted')
-	// 	}
-	// }).timeout(0)
+	it('3. videoDownload: incorrect file-type can be detected & download aborted', async()=> {
+		try {
+			const x = await videoDownload(notvid) 
+		} catch (e) {
+			expect(e.message).to.equal('aborted')
+		}
+	}).timeout(0)
 	
-	// it('4. createScreencaps: create screencaps from "smallvid" video test', async()=> {
-	// 	//@ts-ignore
-	// 	const smallvid: VidDownloadRecord = {
-	// 		complete: 'FALSE',
-	// 		content_size: 1053651,
-	// 		txid: smalltx,
-	// 		content_type: 'video/mp4',
-	// 	}
-	// 	await videoDownload(smallvid)
-	// 	while(smallvid.complete !== 'TRUE') await sleep(500)
-	// 	const frames = await createScreencaps(smallvid.txid) 
-	// 	expect(frames.length).equal(2)
-	// }).timeout(0)
+	it('4. createScreencaps: create screencaps from "smallvid" video test', async()=> {
+		//@ts-ignore
+		const smallvid: VidDownloadRecord = {
+			complete: 'FALSE',
+			content_size: 1053651,
+			txid: smalltx,
+			content_type: 'video/mp4',
+		}
+		await videoDownload(smallvid)
+		while(smallvid.complete !== 'TRUE') await sleep(500)
+		const frames = await createScreencaps(smallvid.txid) 
+		expect(frames.length).equal(2)
+	}).timeout(0)
 
-	// it('5. checkFrames: check screencaps for nsfw content', async()=> {
-	// 	//@ts-ignore
-	// 	const smallvid: VidDownloadRecord = {
-	// 		complete: 'FALSE',
-	// 		content_size: 1053651,
-	// 		txid: smalltx,
-	// 		content_type: 'video/mp4',
-	// 	}
-	// 	await videoDownload(smallvid)
-	// 	while(smallvid.complete === 'FALSE') await sleep(500)
-	// 	const frames = await createScreencaps(smallvid.txid) 
-	// 	const res = await checkFrames(frames, smallvid.txid) 
-	// 	expect(res).to.exist
-	// 	if(res){ expect(res[0].txid).equal(smalltx) }
-	// }).timeout(0)
+	it('5. checkFrames: check screencaps for nsfw content', async()=> {
+		//@ts-ignore
+		const smallvid: VidDownloadRecord = {
+			complete: 'FALSE',
+			content_size: 1053651,
+			txid: smalltx,
+			content_type: 'video/mp4',
+		}
+		await videoDownload(smallvid)
+		while(smallvid.complete === 'FALSE') await sleep(500)
+		const frames = await createScreencaps(smallvid.txid) 
+		const res = await checkFrames(frames, smallvid.txid) 
+		expect(res).to.exist
+		if(res){ expect(res[0].txid).equal(smalltx) }
+	}).timeout(0)
 	
-	// it('6. checkInFlightVids: for one call', async()=>{
-	// 	//@ts-ignore
-	// 	const smallvid2: VidDownloadRecord = {
-	// 		complete: 'FALSE',
-	// 		content_size: 597283,
-	// 		content_type: 'video/mp4',
-	// 		txid: '5ptIH1GrUYrgzrrwCf-mVE8aWMGbiZ4vt9z4VcMYaNA',//'9rE8vXMG2T702EVMxomVBCUKvRBzeZPiCUpgryr60Eo',
-	// 	}
-	// 	const keepgoing = await checkInFlightVids(smallvid2)
-	// 	expect(keepgoing).true
-	// 	//wait for and test completed download
-	// 	let count = 20
-	// 	while((smallvid2.complete !== 'TRUE') && count--){
-	// 		await sleep(1000)
-	// 	}
-	// 	expect(smallvid2.complete).to.eq('TRUE')
-	// }).timeout(0)
+	it('6. checkInFlightVids: for one call', async()=>{
+		//@ts-ignore
+		const smallvid2: VidDownloadRecord = {
+			complete: 'FALSE',
+			content_size: 597283,
+			content_type: 'video/mp4',
+			txid: '5ptIH1GrUYrgzrrwCf-mVE8aWMGbiZ4vt9z4VcMYaNA',//'9rE8vXMG2T702EVMxomVBCUKvRBzeZPiCUpgryr60Eo',
+		}
+		const keepgoing = await checkInFlightVids([smallvid2])
+		expect(keepgoing).true
+		//wait for and test completed download
+		let count = 20
+		while((smallvid2.complete !== 'TRUE') && count--){
+			await sleep(1000)
+		}
+		expect(smallvid2.complete).to.eq('TRUE')
+	}).timeout(0)
 	
 	it('7. checkInflightVids: call in a loop', async()=> {
 		const vids: Partial<TxRecord>[] = [
@@ -143,7 +143,7 @@ describe('video-prepare tests', ()=> {
 		let keepgoing = true
 		while(keepgoing){
 			for (const vid of vids) {
-				keepgoing = await checkInFlightVids(vid as TxRecord) 
+				keepgoing = await checkInFlightVids([vid as TxRecord]) 
 				await sleep(1000)
 			}
 		}
