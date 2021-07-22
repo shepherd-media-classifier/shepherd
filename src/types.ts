@@ -53,3 +53,9 @@ export interface StateRecord {
 	pname: 'scanner_position' | 'rating_position' | (string & {}) //nice hack for intellisense
 	value: number //blocknumber is a bad name
 }
+
+export interface FfmpegError {
+	name: string
+	message: string
+	status: number
+}

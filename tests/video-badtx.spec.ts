@@ -22,7 +22,7 @@ describe('video bad tx handling tests', ()=> {
 			//we're expecting an ffmpeg error in createScreencaps
 			const frames = await createScreencaps(badData.txid) 
 		}catch(e){
-			expect(e.message).eq('corrupt video data')
+			expect(e.message).eq('Invalid data found when processing input')
 		}
 	}).timeout(0)
 

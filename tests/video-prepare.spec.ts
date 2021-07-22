@@ -4,6 +4,7 @@ import { checkFrames } from '../src/rating/video/check-frames'
 import { createScreencaps } from '../src/rating/video/screencaps'
 import { checkInFlightVids, VidDownloadRecord, videoDownload } from '../src/rating/video/video-prepare'
 import { TxRecord } from '../src/types'
+import col from 'ansi-colors'
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
