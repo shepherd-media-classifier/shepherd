@@ -2,13 +2,14 @@ import axios from 'axios'
 import { IncomingMessage } from 'http'
 import { NO_STREAM_TIMEOUT, VID_TMPDIR, VID_TMPDIR_MAXSIZE } from '../../constants'
 import fs from 'fs'
-import filetype from 'file-type'
+import filetype, { FileTypeResult } from 'file-type'
 import { logger } from '../../utils/logger'
 import { TxRecord } from '../../types'
-import { corruptDataConfirmed, corruptDataMaybe, noDataFound, noDataFound404, wrongMimeType } from '../mark-txs'
+import { dbCorruptDataConfirmed, dbCorruptDataMaybe, dbNoDataFound, dbNoDataFound404, dbNoMimeType, dbWrongMimeType } from '../mark-txs'
 import { createScreencaps } from './screencaps'
 import { checkFrames } from './check-frames'
 import rimraf from 'rimraf'
+import { exec } from 'child_process'
 
 /* Video download queue */
 export interface VidDownloadRecord extends TxRecord {
@@ -47,10 +48,10 @@ export const checkInFlightVids = async(inputVid: TxRecord[])=> {
 			}catch(e){
 				if(e.message === 'corrupt video data'){
 					logger(dl.txid, 'ffprobe: corrupt video data')
-					corruptDataConfirmed(dl.txid)
+					dbCorruptDataConfirmed(dl.txid)
 				}else{
 					logger(dl.txid, 'ffmpeg: error creating screencaps')
-					corruptDataMaybe(dl.txid)
+					dbCorruptDataMaybe(dl.txid)
 				}
 				//delete the temp files
 				cleanUpDownload(dl)
@@ -60,15 +61,13 @@ export const checkInFlightVids = async(inputVid: TxRecord[])=> {
 			//let tfjs run through the screencaps & write to db
 			if(frames.length < 2){
 				logger(dl.txid, 'ERROR: No frames to process!')
-				corruptDataMaybe(dl.txid)
+				dbCorruptDataMaybe(dl.txid)
 			}else{ 
 				await checkFrames(frames, dl.txid)
 			}
 			
 			//delete the temp files
 			cleanUpDownload(dl)
-			
-			// break; //process 1 only
 		}
 	}
 
@@ -93,6 +92,18 @@ export const checkInFlightVids = async(inputVid: TxRecord[])=> {
 	return true
 }
 
+const playDownloadedFile = (txid:string)=>{
+	const path = VID_TMPDIR + txid + '/' + txid
+	exec('ffplay ' + path, (err, stdout, stderr)=> {
+		if(err){
+			logger(txid, `exec error: ${err}`)
+			return
+		}
+		logger(txid, `stdout: ${stdout}`)
+		logger(txid, `stderr: ${stderr}`)
+	})
+	exec('start https://arweave.net/' + txid)
+}
 
 
 export const videoDownload = async(vid: VidDownloadRecord)=> {
@@ -123,17 +134,30 @@ export const videoDownload = async(vid: VidDownloadRecord)=> {
 			timer = setTimeout( ()=>{
 				source.cancel()
 				logger(vid.txid, `setTimeout ${NO_STREAM_TIMEOUT} ms exceeded`)
-				noDataFound(vid.txid)
+				dbNoDataFound(vid.txid)
 			}, NO_STREAM_TIMEOUT )
 			
 			const stream: IncomingMessage = data
 			
 			let mimeNotFound = true
 			let filehead = new Uint8Array(0)
-	
+
+			const fileTypeGood = (res: FileTypeResult | undefined)=>{
+				if(res === undefined){
+					logger(vid.txid, 'no video file-type:', res)
+					dbNoMimeType(vid.txid)
+					return false
+				}else if(!res.mime.startsWith('video/')){
+					logger(vid.txid, 'invalid video file-type:', res.mime)
+					dbWrongMimeType(vid.txid, res.mime)
+					return false
+				}
+				logger(vid.txid, 'detected mime:', res.mime)
+				return true
+			}
+			
 			stream.on('data', async(chunk: Uint8Array)=>{
 				clearTimeout(timer!)
-
 				/* check the file head for mimetype & abort download if necessary */
 				if(mimeNotFound){
 					if(filehead.length < 4100){
@@ -141,31 +165,33 @@ export const videoDownload = async(vid: VidDownloadRecord)=> {
 					} else {
 						mimeNotFound = false
 						const res = await filetype.fromBuffer(filehead)
-						if(res === undefined){
-							logger(vid.txid, 'no video file-type:', res)
+						if(!fileTypeGood(res)){
 							source.cancel()
-							corruptDataConfirmed(vid.txid)
-						}else if(!res.mime.startsWith('video/')){
-							logger(vid.txid, 'invalid video file-type:', res.mime)
-							source.cancel()
-							wrongMimeType(vid.txid, res.mime)
-						} 
-						return;
+							return;
+						}
 					}
 				}
 					
 				filewriter.write(chunk)
 			})
 	
-			stream.on('end', ()=>{
+			stream.on('end', async()=>{
 				filewriter.end()
 				vid.complete = 'TRUE'
+				if(mimeNotFound){
+					const res = await filetype.fromBuffer(filehead)
+					logger(vid.txid, 'mime was not found during download:', res)
+					if(!fileTypeGood(res)){
+						vid.complete = 'ERROR'
+					}
+				}
+				// if(process.env.NODE_ENV === 'test') playDownloadedFile(vid.txid)
 				resolve(true)
 			})
 	
 			stream.on('error', (e: Error)=>{
-				filewriter.end()
 				vid.complete = 'ERROR'
+				filewriter.end()
 				e.message === 'aborted' ? resolve(true) : reject(e)
 			})
 			
@@ -177,7 +203,7 @@ export const videoDownload = async(vid: VidDownloadRecord)=> {
 			filewriter.end()
 			if(e.message === 'Request failed with status code 404'){
 				logger(vid.txid, 'Error 404', e.name, ':', e.message)
-				noDataFound404(vid.txid)
+				dbNoDataFound404(vid.txid)
 				resolve(true)
 			}else{
 				logger(vid.txid, 'UNHANDLED ERROR in videoDownload', e.name, ':', e.message)

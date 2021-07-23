@@ -18,7 +18,7 @@ import { TxRecord } from '../types'
 import { NO_DATA_TIMEOUT } from '../constants'
 import col from 'ansi-colors'
 import { axiosDataTimeout } from '../utils/axiosDataTimeout'
-import { corruptDataConfirmed, corruptDataMaybe, noDataFound404, oversizedPngFound, partialDataFound, timeoutInBatch } from './mark-txs'
+import { dbCorruptDataConfirmed, dbCorruptDataMaybe, dbNoDataFound404, dbOversizedPngFound, dbPartialDataFound, dbTimeoutInBatch } from './mark-txs'
 
 
 // do this for all envs
@@ -128,7 +128,7 @@ export class NsfwTools {
 
 			if(e.response && e.response.status === 404){
 				logger(prefix, 'no data found (404)', url)
-				await noDataFound404(txid)
+				await dbNoDataFound404(txid)
 			}
 
 			else if(
@@ -140,12 +140,12 @@ export class NsfwTools {
 				|| e.message === 'aborted'
 			){
 				logger(prefix, `gif. probable corrupt data found (${e.message})`, url)
-				await corruptDataMaybe(txid)
+				await dbCorruptDataMaybe(txid)
 			}
 
 			else if(e.message === `Timeout of ${NO_DATA_TIMEOUT}ms exceeded`){
 				logger(prefix, `Timeout of ${NO_DATA_TIMEOUT}ms exceeded`, url)
-				await timeoutInBatch(txid)
+				await dbTimeoutInBatch(txid)
 			}
 
 			else{
@@ -207,12 +207,12 @@ export class NsfwTools {
 				&& (contentType === 'image/bmp' || contentType === 'image/jpeg' || contentType === 'image/png')
 			){
 				logger(prefix, 'probable corrupt data found', contentType, url)
-				await corruptDataMaybe(txid)
+				await dbCorruptDataMaybe(txid)
 			}
 			
 			else if(e.response && e.response.status === 404){
 				logger(prefix, 'no data found (404)', contentType, url)
-				await noDataFound404(txid)
+				await dbNoDataFound404(txid)
 			}
 			
 			else if(e.message.startsWith('Invalid TF_Status: 3')){
@@ -226,13 +226,13 @@ export class NsfwTools {
 				){
 					//partial image
 					logger(prefix, 'partial image found', contentType, url)
-					await partialDataFound(txid)
+					await dbPartialDataFound(txid)
 				}
 				
 				else if(reason === 'Message: PNG size too large for int: 23622 by 23622'){
 					//oversized png
 					logger(prefix, 'oversized png found', contentType, url)
-					await oversizedPngFound(txid)
+					await dbOversizedPngFound(txid)
 				}
 				
 				else if(
@@ -241,7 +241,7 @@ export class NsfwTools {
 				){
 					// unreadable data
 					logger(prefix, 'bad data found', contentType, url)
-					await corruptDataConfirmed(txid)
+					await dbCorruptDataConfirmed(txid)
 				}
 				
 				else{
@@ -252,7 +252,7 @@ export class NsfwTools {
 			
 			else if(e.message === `Timeout of ${NO_DATA_TIMEOUT}ms exceeded`){
 				logger(prefix, 'connection timed out. check again later', contentType, url)
-				await timeoutInBatch(txid)
+				await dbTimeoutInBatch(txid)
 			}
 			
 			else if(e.response && e.response.status && e.response.status === 504){

@@ -28,8 +28,9 @@ export const checkFrames = async(frames: string[], txid: string)=> {
 				logger(txid, 'hentai video detected', vidUrl)
 				flagged = true
 				score.nsfw_hentai = prob1
+			}else{
+				logger(txid, 'hentai < 0.5', vidUrl)
 			}
-			logger(txid, 'hentai < 0.5', vidUrl)
 			break;
 		}
 		if(class1 === 'Porn'){

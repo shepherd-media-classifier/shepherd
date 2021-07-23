@@ -16,7 +16,7 @@ export const updateDb = async(txid: string, updates: Partial<TxRecord>)=> {
 }
 
 
-export const noDataFound404 = async(txid: string)=> {
+export const dbNoDataFound404 = async(txid: string)=> {
 	return updateDb(txid,{
 		flagged: false,
 		valid_data: false,
@@ -25,7 +25,7 @@ export const noDataFound404 = async(txid: string)=> {
 	})
 }
 
-export const noDataFound = async(txid: string)=> {
+export const dbNoDataFound = async(txid: string)=> {
 	return updateDb(txid,{
 		flagged: false,
 		valid_data: false,
@@ -34,7 +34,7 @@ export const noDataFound = async(txid: string)=> {
 	})
 }
 
-export const corruptDataConfirmed = async(txid: string)=> {
+export const dbCorruptDataConfirmed = async(txid: string)=> {
 	return updateDb(txid,{
 		flagged: false,
 		valid_data: false,
@@ -43,7 +43,7 @@ export const corruptDataConfirmed = async(txid: string)=> {
 	})
 }
 
-export const corruptDataMaybe = async(txid: string)=> {
+export const dbCorruptDataMaybe = async(txid: string)=> {
 	return updateDb(txid,{
 		// flagged: false, <= try filetype detection first
 		valid_data: false,
@@ -52,7 +52,7 @@ export const corruptDataMaybe = async(txid: string)=> {
 	})
 }
 
-export const partialDataFound = async(txid: string)=> {
+export const dbPartialDataFound = async(txid: string)=> {
 	return updateDb(txid,{
 		// flagged: <= cannot flag yet! display with puppeteer & rate again
 		valid_data: false,
@@ -61,7 +61,7 @@ export const partialDataFound = async(txid: string)=> {
 	})
 }
 
-export const oversizedPngFound = async(txid: string)=> {
+export const dbOversizedPngFound = async(txid: string)=> {
 	return updateDb(txid,{
 		// flagged: <= cannot flag yet! use tinypng, then rate again
 		valid_data: false,
@@ -70,7 +70,7 @@ export const oversizedPngFound = async(txid: string)=> {
 	})
 }
 
-export const timeoutInBatch = async(txid: string)=> {
+export const dbTimeoutInBatch = async(txid: string)=> {
 	return updateDb(txid,{
 		// flagged: <= need recheck: may be due to other delay during timeout or data not seeded yet
 		valid_data: false,
@@ -79,10 +79,19 @@ export const timeoutInBatch = async(txid: string)=> {
 	})
 }
 
-export const wrongMimeType = async(txid: string, content_type: string)=> {
+export const dbWrongMimeType = async(txid: string, content_type: string)=> {
 	return updateDb(txid,{
 		// this will be retried in the relevant queue
 		content_type,
+		data_reason: 'mimetype',
+		last_update_date: new Date(),
+	})
+}
+
+export const dbNoMimeType = async(txid: string)=> {
+	return updateDb(txid,{
+		flagged: false,
+		content_type: 'undefined',
 		data_reason: 'mimetype',
 		last_update_date: new Date(),
 	})
