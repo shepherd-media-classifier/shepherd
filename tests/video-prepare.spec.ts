@@ -2,9 +2,10 @@ require('dotenv').config() //first line of entrypoint
 import { expect } from 'chai'
 import { checkFrames } from '../src/rating/video/check-frames'
 import { createScreencaps } from '../src/rating/video/screencaps'
-import { checkInFlightVids, VidDownloadRecord, videoDownload } from '../src/rating/video/video-prepare'
+import { checkInFlightVids, videoDownload } from '../src/rating/video/video-prepare'
 import { TxRecord } from '../src/types'
 import col from 'ansi-colors'
+import { VidDownloadRecord } from '../src/rating/video/VidDownloads'
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 

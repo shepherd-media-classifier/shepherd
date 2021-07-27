@@ -1,8 +1,9 @@
 require('dotenv').config() //first line of entrypoint
 import { expect } from 'chai'
 import { createScreencaps } from '../src/rating/video/screencaps'
-import { VidDownloadRecord, videoDownload } from '../src/rating/video/video-prepare'
+import { videoDownload } from '../src/rating/video/video-prepare'
 import col from 'ansi-colors'
+import { VidDownloadRecord } from '../src/rating/video/VidDownloads'
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 

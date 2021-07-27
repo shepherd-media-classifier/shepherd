@@ -10,20 +10,11 @@ import { createScreencaps } from './screencaps'
 import { checkFrames } from './check-frames'
 import rimraf from 'rimraf'
 import { exec } from 'child_process'
+import { VidDownloadRecord, VidDownloads } from './VidDownloads'
 
 /* Video download queue */
-export interface VidDownloadRecord extends TxRecord {
-	complete: 'TRUE' | 'FALSE' | 'ERROR' | (string & {})
-}
+const downloads = VidDownloads.getInstance()
 
-let downloads: VidDownloadRecord[] = []
-
-const downloadsSize = ()=> downloads.reduce((acc, curr)=> acc + curr.content_size, 0)
-
-const cleanUpDownload = (dl: VidDownloadRecord)=> {
-	rimraf(VID_TMPDIR + dl.txid, (e)=> e && logger(dl.txid, 'Error deleting temp folder', e))
-	downloads = downloads.filter(d => d !== dl)
-}
 
 export const checkInFlightVids = async(inputVid: TxRecord[])=> {
 	
@@ -32,7 +23,7 @@ export const checkInFlightVids = async(inputVid: TxRecord[])=> {
 	//cleanup aborted/errored downloads
 	for (const dl of downloads) {
 		if(dl.complete === 'ERROR'){
-			cleanUpDownload(dl)
+			downloads.cleanup(dl)
 		}
 	}
 	
@@ -54,7 +45,7 @@ export const checkInFlightVids = async(inputVid: TxRecord[])=> {
 					dbCorruptDataMaybe(dl.txid)
 				}
 				//delete the temp files
-				cleanUpDownload(dl)
+				downloads.cleanup(dl)
 				continue;
 			}
 
@@ -67,7 +58,7 @@ export const checkInFlightVids = async(inputVid: TxRecord[])=> {
 			}
 			
 			//delete the temp files
-			cleanUpDownload(dl)
+			downloads.cleanup(dl)
 		}
 	}
 
@@ -75,7 +66,7 @@ export const checkInFlightVids = async(inputVid: TxRecord[])=> {
 
 	if(inputVid.length === 1){
 		const vid = inputVid[0]
-		if(downloads.length < 10 && downloadsSize() < VID_TMPDIR_MAXSIZE){
+		if(downloads.length() < 10 && downloads.size() < VID_TMPDIR_MAXSIZE){
 			let dl: VidDownloadRecord = Object.assign({complete: 'FALSE'}, vid) 
 			downloads.push(dl)
 			//call async as potentially large download
@@ -83,8 +74,8 @@ export const checkInFlightVids = async(inputVid: TxRecord[])=> {
 				logger(dl.txid, 'finished downloading', res)
 			})
 	
-			logger(vid.txid, 'downloading video', downloadsSize(), '/', VID_TMPDIR_MAXSIZE, `${downloads.length}/10`)
-			return (downloads.length < 10)
+			logger(vid.txid, 'downloading video', downloads.size(), '/', VID_TMPDIR_MAXSIZE, `${downloads.length()}/10`)
+			return (downloads.length() < 10)
 		} else{
 			return false
 		}
