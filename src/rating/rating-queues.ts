@@ -2,8 +2,10 @@ import { TxRecord } from '../types'
 import getDbConnection from '../utils/db-connection'
 import { logger } from '../utils/logger'
 import { NsfwTools } from './image-rater'
-import { unsupportedTypes, videoTypes } from '../constants'
-import { checkInFlightVids } from './video/video-prepare'
+import { unsupportedTypes, videoTypes, VID_TMPDIR_MAXSIZE } from '../constants'
+import { processVids } from './video/process-files'
+import { VidDownloads } from './video/VidDownloads'
+import { addToDownloads } from './video/downloader'
 
 const prefix = 'rating'
 const db = getDbConnection()
@@ -84,10 +86,9 @@ export const rater = async()=>{
 	let vidQueue = await getVids()
 	let otherQueue = await getOthers()
 
-	/* loop through each queue interleaving one batch at a time */
+	const vidDownloads = VidDownloads.getInstance()
 
-	let continueVids = true
-	let vid: TxRecord[] = [] // just one record
+	/* loop through each queue interleaving one batch at a time */
 	
 	while(true){
 
@@ -96,24 +97,9 @@ export const rater = async()=>{
 		let gifs = gifQueue.splice(0, Math.min(gifQueue.length, BATCH_GIF))
 		let others = otherQueue.splice(0, Math.min(otherQueue.length, BATCH_OTHER))
 
-		//videos have their own internal queue system
-		if(continueVids){
-			if(vidQueue.length > 0){
-				vid = [vidQueue.pop() as TxRecord]
-				logger(prefix, `processing 1 video from ${vidQueue.length + 1}`)
-			}else{
-				vid = []
-			}
-		} 
-		continueVids = await checkInFlightVids(vid)
+		const imagesBacklog = images.length + gifs.length // + others.length
 
-
-		/**
-		 * TEMPORARY. Do not check others.length until this queue is handled.
-		 */
-		const total = images.length + gifs.length // + others.length
-
-		if(total !== 0){
+		if(imagesBacklog !== 0){
 			//process a batch of images
 			logger(prefix, `processing ${images.length} images of ${imageQueue.length + images.length}`)
 			await Promise.all(images.map(image => NsfwTools.checkImageTxid(image.txid, image.content_type)))
@@ -125,12 +111,28 @@ export const rater = async()=>{
 			// //process a batch of others
 			// logger(prefix, `processing ${others.length} others of ${otherQueue.length + others.length}`)
 			// //TODO: await Promise.all(others.map(other => checkOtherTxid(other)))
-		}else if(continueVids){
-			//do not sleep
-			logger(prefix, 'images synced. continuing vids')
-		}else{
+		}
+		
+		//start another video download
+		if((vidQueue.length > 0) && (vidDownloads.length() < 10) && (vidDownloads.size() < VID_TMPDIR_MAXSIZE)){
+			logger(prefix, `downloading one from ${vidQueue.length + 1} videos`)
+			let vid = vidQueue.pop() as TxRecord
+			await addToDownloads(vid)
+		}
+		//process downloaded videos
+		if(vidDownloads.length() > 0){
+			await processVids()
+			//cleanup aborted/errored downloads
+			for (const dl of vidDownloads) {
+				if(dl.complete === 'ERROR'){
+					vidDownloads.cleanup(dl)
+				}
+			}
+		}
+
+		if((imagesBacklog + vidQueue.length + vidDownloads.length()) === 0){
 			//all queues are empty so wait 30 seconds
-			logger(prefix, 'all queues synced at zero length')
+			logger(prefix, 'all rating queues at zero length')
 			await sleep(30000)
 		}
 

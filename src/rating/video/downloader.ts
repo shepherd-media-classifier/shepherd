@@ -1,89 +1,33 @@
-import axios from 'axios'
-import { IncomingMessage } from 'http'
-import { NO_STREAM_TIMEOUT, VID_TMPDIR, VID_TMPDIR_MAXSIZE } from '../../constants'
+import axios from "axios";
 import fs from 'fs'
-import filetype, { FileTypeResult } from 'file-type'
-import { logger } from '../../utils/logger'
-import { TxRecord } from '../../types'
-import { dbCorruptDataConfirmed, dbCorruptDataMaybe, dbNoDataFound, dbNoDataFound404, dbNoMimeType, dbWrongMimeType } from '../mark-txs'
-import { createScreencaps } from './screencaps'
-import { checkFrames } from './check-frames'
-import rimraf from 'rimraf'
 import { exec } from 'child_process'
-import { VidDownloadRecord, VidDownloads } from './VidDownloads'
+import filetype, { FileTypeResult } from "file-type";
+import { IncomingMessage } from "http";
+import { NO_STREAM_TIMEOUT, VID_TMPDIR, VID_TMPDIR_MAXSIZE } from "../../constants";
+import { logger } from "../../utils/logger";
+import { dbNoDataFound, dbNoDataFound404, dbNoMimeType, dbWrongMimeType } from "../mark-txs";
+import { VidDownloadRecord, VidDownloads } from "./VidDownloads";
+import { TxRecord } from "../../types";
 
-/* Video download queue */
+
 const downloads = VidDownloads.getInstance()
 
-
-export const checkInFlightVids = async(inputVid: TxRecord[])=> {
-	
-	/* Check previous downloads */
-	
-	//cleanup aborted/errored downloads
-	for (const dl of downloads) {
-		if(dl.complete === 'ERROR'){
-			downloads.cleanup(dl)
-		}
-	}
-	
-	//check if any finished downloading & process 
-	for (const dl of downloads) {
-		if(dl.complete === 'TRUE'){
-			logger(dl.txid, 'ready for processing')
-			
-			//create screencaps & handle errors
-			let frames: string[] = []
-			try{
-				frames = await createScreencaps(dl.txid)
-			}catch(e){
-				if(e.message === 'corrupt video data'){
-					logger(dl.txid, 'ffprobe: corrupt video data')
-					dbCorruptDataConfirmed(dl.txid)
-				}else{
-					logger(dl.txid, 'ffmpeg: error creating screencaps')
-					dbCorruptDataMaybe(dl.txid)
-				}
-				//delete the temp files
-				downloads.cleanup(dl)
-				continue;
-			}
-
-			//let tfjs run through the screencaps & write to db
-			if(frames.length < 2){
-				logger(dl.txid, 'ERROR: No frames to process!')
-				dbCorruptDataMaybe(dl.txid)
-			}else{ 
-				await checkFrames(frames, dl.txid)
-			}
-			
-			//delete the temp files
-			downloads.cleanup(dl)
-		}
-	}
+export const addToDownloads = async(vid: TxRecord)=> {
 
 	/* Start downloading the next video if we have enough room */
+	// if(downloads.length() < 10 && downloads.size() < VID_TMPDIR_MAXSIZE){
 
-	if(inputVid.length === 1){
-		const vid = inputVid[0]
-		if(downloads.length() < 10 && downloads.size() < VID_TMPDIR_MAXSIZE){
-			let dl: VidDownloadRecord = Object.assign({complete: 'FALSE'}, vid) 
-			downloads.push(dl)
-			//call async as potentially large download
-			videoDownload( dl ).then( (res)=> {
-				logger(dl.txid, 'finished downloading', res)
-			})
-	
-			logger(vid.txid, 'downloading video', downloads.size(), '/', VID_TMPDIR_MAXSIZE, `${downloads.length()}/10`)
-			return (downloads.length() < 10)
-		} else{
-			return false
-		}
-	}
-	return true
+	let dl: VidDownloadRecord = Object.assign({complete: 'FALSE'}, vid) 
+	downloads.push(dl)
+	//call async as likely large download
+	videoDownload( dl ).then( (res)=> {
+		logger(dl.txid, 'finished downloading', res)
+	})
+
+	logger(vid.txid, vid.content_size, 'downloading video', downloads.size(), '/', VID_TMPDIR_MAXSIZE, `${downloads.length()}/10`)
 }
 
-const playDownloadedFile = (txid:string)=>{
+const playVidFile_TEST_ONLY = (txid:string)=>{
 	const path = VID_TMPDIR + txid + '/' + txid
 	exec('ffplay ' + path, (err, stdout, stderr)=> {
 		if(err){
@@ -95,7 +39,6 @@ const playDownloadedFile = (txid:string)=>{
 	})
 	exec('start https://arweave.net/' + txid)
 }
-
 
 export const videoDownload = async(vid: VidDownloadRecord)=> {
 	return new Promise(async(resolve, reject)=> {
@@ -176,7 +119,7 @@ export const videoDownload = async(vid: VidDownloadRecord)=> {
 						vid.complete = 'ERROR'
 					}
 				}
-				// if(process.env.NODE_ENV === 'test') playDownloadedFile(vid.txid)
+				// if(process.env.NODE_ENV === 'test') playVidFile_TEST_ONLY(vid.txid)
 				resolve(true)
 			})
 	

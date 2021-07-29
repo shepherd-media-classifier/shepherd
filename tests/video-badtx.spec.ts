@@ -1,7 +1,7 @@
 require('dotenv').config() //first line of entrypoint
 import { expect } from 'chai'
 import { createScreencaps } from '../src/rating/video/screencaps'
-import { videoDownload } from '../src/rating/video/video-prepare'
+import { addToDownloads, videoDownload } from '../src/rating/video/downloader'
 import col from 'ansi-colors'
 import { VidDownloadRecord } from '../src/rating/video/VidDownloads'
 
