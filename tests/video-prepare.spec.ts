@@ -22,30 +22,12 @@ describe('video-prepare tests', ()=> {
 		rimraf('temp-screencaps/./*', (e)=>e&&console.log('error in afterEach cleaning tempdir'))
 	})
 
-	/* Set up some test data */
-
-	const smalltx = 'nSX3Qaz-r1NF2dJ4Xh-pMrD6VNt_5wmtu6AgezO3h9U'// 'oROdHYx2xAhp8vMMrARMqgQQcJ8bpxQHl_-nAYIf1kg'
-	
-	//@ts-ignore
-	const nodata: VidDownloadRecord = {
-		complete: 'FALSE',
-		content_size: 14343687,
-		txid: 'mKtVp1UVE7TScGBoGrZ8Qi741v2G06a-An8baaceY2M', //no data (it's actually a missing image)
-	}
-
-	//@ts-ignore
-	const notvid: VidDownloadRecord = {
-		complete: 'FALSE',
-		content_size: 419080,
-		txid: 'rbm6bKvIKhuui9wATaySbLDuRUKq1KLb8qmaihNpsbU', // an image file
-	}
-
-	it('1. videoDownload: downloads a video (smallvid)', async()=> {
+	it('1. videoDownload: downloads a video', async()=> {
 		//@ts-ignore
 		const smallvid: VidDownloadRecord = {
 			complete: 'FALSE',
 			content_size: 1053651,
-			txid: smalltx,
+			txid: 'nSX3Qaz-r1NF2dJ4Xh-pMrD6VNt_5wmtu6AgezO3h9U',
 			content_type: 'video/mp4',
 		}
 		const res = await videoDownload(smallvid)
@@ -54,6 +36,12 @@ describe('video-prepare tests', ()=> {
 	}).timeout(0)
 
 	it('2. videoDownload: times out when no first byte', async()=> {
+		//@ts-ignore
+		const nodata: VidDownloadRecord = {
+			complete: 'FALSE',
+			content_size: 14343687,
+			txid: 'mKtVp1UVE7TScGBoGrZ8Qi741v2G06a-An8baaceY2M', //no data (it's actually a missing image)
+		}
 		try {
 			const x = await videoDownload(nodata) 
 		} catch (e) {
@@ -62,6 +50,12 @@ describe('video-prepare tests', ()=> {
 	}).timeout(0)
 
 	it('3. videoDownload: incorrect file-type can be detected & download aborted', async()=> {
+		//@ts-ignore
+		const notvid: VidDownloadRecord = {
+			complete: 'FALSE',
+			content_size: 419080,
+			txid: 'rbm6bKvIKhuui9wATaySbLDuRUKq1KLb8qmaihNpsbU', // an image file
+		}
 		try {
 			const x = await videoDownload(notvid) 
 		} catch (e) {

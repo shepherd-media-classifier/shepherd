@@ -136,7 +136,7 @@ export const videoDownload = async(vid: VidDownloadRecord)=> {
 			vid.complete = 'ERROR'
 			filewriter.end()
 			if(e.message === 'Request failed with status code 404'){
-				logger(vid.txid, 'Error 404', e.name, ':', e.message)
+				logger(vid.txid, 'Error 404 :', e.message)
 				dbNoDataFound404(vid.txid)
 				resolve(true)
 			}else{

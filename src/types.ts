@@ -54,8 +54,8 @@ export interface StateRecord {
 	value: number //blocknumber is a bad name
 }
 
-export interface FfmpegError {
-	name: string
+export type FfmpegError = {
+	name: 'FfmpegError'
 	message: string
 	status: number
 }

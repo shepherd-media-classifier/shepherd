@@ -33,8 +33,8 @@ export const createScreencaps = async(txid: string)=> {
 
 	}catch(e){
 		const errMsg = e.message.split(':').pop().trim()
-		logger(txid, e.name, ':', errMsg, e.status)
-		const err: FfmpegError = { name: e.name, message: errMsg, status: e.status }
+		logger(txid, e.name, ':', errMsg, 'status:', e.status)
+		const err: FfmpegError = { name: 'FfmpegError', message: errMsg, status: e.status }
 		throw err
 	}
 }

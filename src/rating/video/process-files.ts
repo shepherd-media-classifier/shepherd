@@ -4,7 +4,7 @@ import { NO_STREAM_TIMEOUT, VID_TMPDIR, VID_TMPDIR_MAXSIZE } from '../../constan
 import fs from 'fs'
 import filetype, { FileTypeResult } from 'file-type'
 import { logger } from '../../utils/logger'
-import { TxRecord } from '../../types'
+import { FfmpegError, TxRecord } from '../../types'
 import { dbCorruptDataConfirmed, dbCorruptDataMaybe, dbNoDataFound, dbNoDataFound404, dbNoMimeType, dbWrongMimeType } from '../mark-txs'
 import { createScreencaps } from './screencaps'
 import { checkFrames } from './check-frames'
@@ -21,19 +21,25 @@ export const processVids = async()=> {
 
 	for (const dl of downloads) {
 		if(dl.complete === 'TRUE'){
+			dl.complete = 'FALSE' //stop processing from beginning again
 			logger(dl.txid, 'begin processing')
 			
 			//create screencaps & handle errors
 			let frames: string[] = []
 			try{
 				frames = await createScreencaps(dl.txid)
-			}catch(e){
+			}catch(err){
+				const e: FfmpegError = err
 				if(e.message === 'corrupt video data'){
 					logger(dl.txid, 'ffprobe: corrupt video data')
 					dbCorruptDataConfirmed(dl.txid)
+				}else if(e.message === 'No such file or directory'){
+					//we should not be in createScreencaps if there is no video file
+					throw e
 				}else{
-					logger(dl.txid, 'ffmpeg: error creating screencaps')
-					dbCorruptDataMaybe(dl.txid)
+					logger(dl.txid, 'ffmpeg: UNHANDLED error screencaps')
+					// dbCorruptDataMaybe(dl.txid)
+					throw e
 				}
 				//delete the temp files
 				downloads.cleanup(dl)
