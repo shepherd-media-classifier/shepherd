@@ -78,7 +78,7 @@ export const videoDownload = async(vid: VidDownloadRecord)=> {
 
 			const fileTypeGood = (res: FileTypeResult | undefined)=>{
 				if(res === undefined){
-					logger(vid.txid, 'no video file-type:', res)
+					logger(vid.txid, 'no file-type found:', res)
 					dbNoMimeType(vid.txid)
 					return false
 				}else if(!res.mime.startsWith('video/')){
@@ -111,13 +111,17 @@ export const videoDownload = async(vid: VidDownloadRecord)=> {
 	
 			stream.on('end', async()=>{
 				filewriter.end()
-				vid.complete = 'TRUE'
+				// vid.complete = 'TRUE' //<= do not mark true before ERROR!
 				if(mimeNotFound){
 					const res = await filetype.fromBuffer(filehead)
 					logger(vid.txid, 'mime was not found during download:', res)
 					if(!fileTypeGood(res)){
 						vid.complete = 'ERROR'
+					}else{ 
+						vid.complete = 'TRUE'
 					}
+				}else{
+					vid.complete = 'TRUE'
 				}
 				// if(process.env.NODE_ENV === 'test') playVidFile_TEST_ONLY(vid.txid)
 				resolve(true)

@@ -26,7 +26,14 @@ export class VidDownloads implements Iterable<VidDownloadRecord> {
 	/* expose methods/properties of internal array */
 	public [Symbol.iterator] = ()=> VidDownloads.array[Symbol.iterator]()
 	public length = ()=> VidDownloads.array.length	//it's become a function
-	public push = (vdl: VidDownloadRecord)=> VidDownloads.array.push(vdl)
+	public push = (vdl: VidDownloadRecord)=> {
+		for (const item of VidDownloads.array) {
+			if(vdl.txid === item.txid){
+				throw new Error("VidDownloadsError: item already in array")//{ name: "VidDownloadsError", message: "item already in array"}
+			}
+		}
+		VidDownloads.array.push(vdl)
+	}
 
 	/* extra methods */
 	public size = ()=> VidDownloads.array.reduce((acc, curr)=> acc + curr.content_size, 0)

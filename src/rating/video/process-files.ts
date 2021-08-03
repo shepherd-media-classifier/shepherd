@@ -36,6 +36,8 @@ export const processVids = async()=> {
 				}else if(e.message === 'No such file or directory'){
 					//we should not be in createScreencaps if there is no video file
 					throw e
+				}else if(e.message === 'Invalid data found when processing input'){
+					dbCorruptDataMaybe(dl.txid)
 				}else{
 					logger(dl.txid, 'ffmpeg: UNHANDLED error screencaps')
 					// dbCorruptDataMaybe(dl.txid)
