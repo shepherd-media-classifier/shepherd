@@ -11,9 +11,11 @@ Notes:
 
 ## Prerequisites
 
-1. install docker & docker-compose
+1. less than 3GB of free disk space
 
-2. create a `.env` file and enter all required values (e.g. `cp .env.example .env`)
+2. install docker & docker-compose
+
+3. create a `.env` file and enter all required values (e.g. `cp .env.example .env`)
 
 ## Install and run
 
@@ -31,20 +33,16 @@ You can check on progress using logs
 ```
 > npm run logs
 ```
+but there's no need to wait for it to sync to the latest block, you can start using the list produced straight away.
 
 ### Load and Use the Blacklist
 
-Your new blacklist server will expose a plain text ('text/plain') list of blacklisted txids separated by newlines. In production mode this can be accessed via 
-```
-http://localhost/blacklist.txt 
-```
-or
-```
-http://<your-ip-address>/blacklist.txt
-```
+Your new blacklist server will expose a list of blacklisted content on the `/blacklist.txt` route. Either locally by `http://localhost/blacklist.txt` or remotely by IP address `http://<YOUR-IP-ADDRESS>/blacklist.txt`
 
 You can use this in the CLI start command of your Arweave node by adding the `transaction_blacklist_url` parameter. For example, if your node & blacklist are running on the same server:
 ```
-> ./bin/start mine mining_addr YOUR-MINING-ADDRESS peer 188.166.200.45 peer 188.166.192.169 peer 163.47.11.64 peer 139.59.51.59 peer 138.197.232.192 transaction_blacklist_url http://localhost/blacklist.txt
+> ./bin/start mine mining_addr <YOUR-MINING-ADDRESS> transaction_blacklist_url http://localhost/blacklist.txt peer 188.166.200.45 peer 188.166.192.169 peer 163.47.11.64 peer 139.59.51.59 peer 138.197.232.192
 ```
-Otherwise you can add it via the IP address.
+otherwise you can add it via your blacklist server's IP address. 
+
+Your arweave node will automatically refresh and update blacklisted content as the list grows. There should be no more needed to be done. If you find that there are other tasks to be performed, please open a GitHub issue, thanks!
