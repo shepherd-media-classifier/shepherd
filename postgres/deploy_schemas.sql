@@ -11,7 +11,7 @@ CREATE TABLE txs (
 	content_size INTEGER NOT NULL,
 	flagged BOOLEAN,
 	valid_data BOOLEAN,
-	data__reason TEXT,
+	data_reason TEXT,
 	nsfw_porn real,
 	nsfw_sexy real,
 	nsfw_hentai real,
