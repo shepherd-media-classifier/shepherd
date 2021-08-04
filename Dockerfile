@@ -12,12 +12,8 @@ RUN apt install ffmpeg -y
 # create app directory
 WORKDIR /app
 
-RUN npm install -g pm2
-# RUN pm2 startup
-
 COPY package*.json ./
 
-# RUN npm install
 # If you are building your code for production
 # RUN npm ci --only=production
 RUN npm ci
@@ -28,4 +24,6 @@ COPY . .
 EXPOSE 80
 EXPOSE 3001
 
-ENTRYPOINT [ "pm2-runtime", "start", "ecosystem.config.js" ]
+ENV NODE_ENV=production
+ENV TF_CPP_MIN_LOG_LEVEL=2
+ENTRYPOINT node -r ts-node/register src/$PROCESS_NAME/index.ts

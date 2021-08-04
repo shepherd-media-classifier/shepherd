@@ -15,16 +15,35 @@ services:
       PGDATA: /var/lib/postgresql/data/pgdata
     restart: always
     # network_mode: host
-  servers:
+  webserver:
     build: 
       context: .
     environment: 
       DB_HOST: pgdb
+      PROCESS_NAME: webserver
     depends_on: 
       - pgdb
     ports: 
       - '80:80'
       - '3001:3001'
+    restart: always
+  scanner:
+    build: 
+      context: .
+    environment: 
+      DB_HOST: pgdb
+      PROCESS_NAME: scanner
+    depends_on: 
+      - pgdb
+    restart: always
+  rating:
+    build: 
+      context: .
+    environment: 
+      DB_HOST: pgdb
+      PROCESS_NAME: rating
+    depends_on: 
+      - pgdb
     restart: always
     volumes: 
       - './temp-screencaps:/app/temp-screencaps'
