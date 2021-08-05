@@ -19,10 +19,16 @@ export const addToDownloads = async(vid: TxRecord)=> {
 
 	let dl: VidDownloadRecord = Object.assign({complete: 'FALSE'}, vid) 
 	downloads.push(dl)
-	//call async as likely large download
-	videoDownload( dl ).then( (res)=> {
-		logger(dl.txid, 'finished downloading', res)
-	})
+
+	try{
+		//call async as likely large download
+		videoDownload( dl ).then( (res)=> {
+			logger(dl.txid, 'finished downloading', res)
+		})
+	}catch(e){
+		logger(dl.txid, e.message)
+		throw e
+	}
 
 	logger(vid.txid, vid.content_size, 'downloading video', downloads.size(), '/', VID_TMPDIR_MAXSIZE, `${downloads.length()}/10`)
 }
