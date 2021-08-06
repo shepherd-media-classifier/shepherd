@@ -35,6 +35,13 @@ export const createScreencaps = async(txid: string)=> {
 		const errMsg = e.message.split(':').pop().trim()
 		logger(txid, e.name, ':', errMsg, 'Status:', e.status)
 		const err: FfmpegError = { name: 'FfmpegError', message: errMsg, status: e.status }
+
+		/* give correct error when there is no video stream in the file */
+		const hasVideoStream = (e.message as string).match(/Stream #([0-9\:]+)([a-z0-9\(\)\[\]]*): Video/g) ? true : false
+		if(!hasVideoStream){
+			err.message = 'no video stream'
+		}
+
 		throw err
 	}
 }

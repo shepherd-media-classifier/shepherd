@@ -33,6 +33,9 @@ export const processVids = async()=> {
 				if(e.message === 'corrupt video data'){
 					logger(dl.txid, 'ffprobe: corrupt video data')
 					dbCorruptDataConfirmed(dl.txid)
+				}else if(e.message === 'no video stream'){
+					logger(dl.txid, 'ffmpeg: no video stream')
+					dbCorruptDataConfirmed(dl.txid)
 				}else if(e.message === 'No such file or directory'){
 					//we should not be in createScreencaps if there is no video file
 					throw e
