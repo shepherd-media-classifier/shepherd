@@ -3,6 +3,7 @@ import { logger } from '../../utils/logger'
 import { execSync } from 'child_process'
 import shelljs from 'shelljs'
 import { FfmpegError } from '../../types'
+import { EOL } from 'os'
 
 
 export const createScreencaps = async(txid: string)=> {
@@ -40,6 +41,14 @@ export const createScreencaps = async(txid: string)=> {
 		const hasVideoStream = (e.message as string).match(/Stream #([0-9\:]+)([a-z0-9\(\)\[\]]*): Video/g) ? true : false
 		if(!hasVideoStream){
 			err.message = 'no video stream'
+			throw err
+		}
+
+		/* get a better error mesage in certain cases */
+		const errMsgLines = errMsg.split(EOL)
+		if(errMsgLines.length > 1){
+			err.message = 'ffout[-2]:' + errMsgLines[errMsgLines.length - 2]
+			throw err
 		}
 
 		throw err

@@ -54,7 +54,7 @@ export const processVids = async()=> {
 			//let tfjs run through the screencaps & write to db
 			if(frames.length < 2){
 				logger(dl.txid, 'ERROR: No frames to process!')
-				dbCorruptDataMaybe(dl.txid)
+				throw new Error(dl.txid + ' No frames to process!')
 			}else{ 
 				await checkFrames(frames, dl.txid)
 			}
