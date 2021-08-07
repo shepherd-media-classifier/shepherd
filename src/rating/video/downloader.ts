@@ -106,6 +106,7 @@ export const videoDownload = async(vid: VidDownloadRecord)=> {
 						mimeNotFound = false
 						const res = await filetype.fromBuffer(filehead)
 						if(!fileTypeGood(res)){
+							vid.complete = 'ERROR'
 							source.cancel()
 							return;
 						}
@@ -117,7 +118,7 @@ export const videoDownload = async(vid: VidDownloadRecord)=> {
 	
 			stream.on('end', async()=>{
 				filewriter.end()
-				// vid.complete = 'TRUE' //<= do not mark true before ERROR!
+
 				if(mimeNotFound){
 					const res = await filetype.fromBuffer(filehead)
 					logger(vid.txid, 'mime was not found during download:', res)
@@ -126,7 +127,7 @@ export const videoDownload = async(vid: VidDownloadRecord)=> {
 					}else{ 
 						vid.complete = 'TRUE'
 					}
-				}else{
+				}else if(vid.complete !== 'ERROR'){ //tiny bad files can get here
 					vid.complete = 'TRUE'
 				}
 				// if(process.env.NODE_ENV === 'test') playVidFile_TEST_ONLY(vid.txid)
@@ -134,7 +135,7 @@ export const videoDownload = async(vid: VidDownloadRecord)=> {
 			})
 	
 			stream.on('error', (e: Error)=>{
-				vid.complete = 'ERROR'
+				vid.complete = 'ERROR' //should be set already
 				filewriter.end()
 				e.message === 'aborted' ? resolve(true) : reject(e)
 			})
