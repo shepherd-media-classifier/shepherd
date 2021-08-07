@@ -1,4 +1,5 @@
 import fs from 'fs'
+import { HOST_URL } from '../../constants'
 import { TxRecord } from '../../types'
 import { logger } from '../../utils/logger'
 import { NsfwTools } from "../image-rater"
@@ -9,7 +10,7 @@ const prefix = 'rating'
 
 export const checkFrames = async(frames: string[], txid: string)=> {
 	const videopath = frames.shift()
-	const vidUrl = 'https://arweave.net/' + videopath!.split('/').pop()
+	const vidUrl = HOST_URL + videopath!.split('/').pop()
 
 	//go through caps. break if nsfw found
 	let flagged = false

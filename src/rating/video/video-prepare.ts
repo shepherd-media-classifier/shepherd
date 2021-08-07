@@ -1,6 +1,6 @@
 import axios from 'axios'
 import { IncomingMessage } from 'http'
-import { NO_STREAM_TIMEOUT, VID_TMPDIR, VID_TMPDIR_MAXSIZE } from '../../constants'
+import { HOST_URL, NO_STREAM_TIMEOUT, VID_TMPDIR, VID_TMPDIR_MAXSIZE } from '../../constants'
 import fs from 'fs'
 import ffmpeg from 'ffmpeg'
 import filetype from 'file-type'
@@ -67,7 +67,7 @@ export const checkInFlightVids = async(vid: TxRecord)=> {
 export const videoDownload = async(vid: VidDownloadRecord)=> {
 	return new Promise(async(resolve, reject)=> {
 
-		const url = 'https://arweave.net/' + vid.txid
+		const url = HOST_URL + vid.txid
 		const folderpath = VID_TMPDIR + vid.txid + '/'
 		fs.mkdirSync(folderpath, { recursive: true })
 		const filewriter = fs.createWriteStream(folderpath + vid.txid, { encoding: 'binary' })

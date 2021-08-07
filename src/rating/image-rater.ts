@@ -15,7 +15,7 @@ import * as tf from '@tensorflow/tfjs-node'
 import * as nsfw from 'nsfwjs'
 import getDbConnection from '../utils/db-connection'
 import { TxRecord } from '../types'
-import { NO_DATA_TIMEOUT } from '../constants'
+import { HOST_URL, NO_DATA_TIMEOUT } from '../constants'
 import col from 'ansi-colors'
 import { axiosDataTimeout } from '../utils/axiosDataTimeout'
 import { corruptDataConfirmed, corruptDataMaybe, noDataFound404, oversizedPngFound, partialDataFound, timeoutInBatch } from './mark-txs'
@@ -67,7 +67,7 @@ export class NsfwTools {
 
 	static checkGifTxid = async(txid: string)=> {
 
-		const url = `https://arweave.net/${txid}`
+		const url = `${HOST_URL}${txid}`
 
 		try {
 
@@ -162,7 +162,7 @@ export class NsfwTools {
 			return NsfwTools.checkGifTxid(txid)
 		}
 
-		const url = `https://arweave.net/${txid}`
+		const url = `${HOST_URL}${txid}`
 		
 		try {
 			
