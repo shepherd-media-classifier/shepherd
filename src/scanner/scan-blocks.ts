@@ -99,7 +99,9 @@ export const scanBlocks = async (minBlock: number, maxBlock: number): Promise<IG
 		logger(prefix, `making three scans of ${((maxBlock - minBlock) + 1)} blocks, from block ${minBlock} to ${maxBlock}`)
 		const images = await getRecords(imageTypes)
 		const videos = await getRecords(videoTypes)
-		const texts = await getRecords(textTypes)
+		
+		/* not needed yet */
+		const texts: TxScanned[] = [] //await getRecords(textTypes)
 
 		await db<StateRecord>('states')
 			.where({pname: 'scanner_position'})
