@@ -18,6 +18,8 @@ const getImages = async()=> {
 		.orWhere({ content_type: 'image/jpeg'})
 		.orWhere({ content_type: 'image/png'})
 	})
+	.orderBy('last_update_date', 'desc')
+
 	const length = records.length
 	logger(prefix, length, 'images found')
 
@@ -28,6 +30,7 @@ const getGifs = async()=> {
 	const records = await db<TxRecord>('txs')
 	.whereNull('valid_data') //not processed yet
 	.where({ content_type: 'image/gif'})
+	.orderBy('last_update_date', 'desc')
 	
 	const length = records.length
 	logger(prefix, length, 'gifs found')
@@ -66,6 +69,9 @@ const getOthers = async()=> {
 	] 
 }
 
+// sum trues
+const trueCount = (results: boolean[]) => results.reduce((acc, curr)=> curr ? ++acc : acc, 0)
+
 export const rater = async()=>{
 
 	/* initialise. load nsfw tf model */
@@ -100,13 +106,15 @@ export const rater = async()=>{
 		const total = images.length + gifs.length // + vids.length + others.length
 
 		if(total !== 0){
-			//process a batch of images
-			logger(prefix, `processing ${images.length} images of ${imageQueue.length + images.length}`)
-			await Promise.all(images.map(image => NsfwTools.checkImageTxid(image.txid, image.content_type)))
-			
+
 			//process a batch of gifs
 			logger(prefix, `processing ${gifs.length} gifs of ${gifQueue.length + gifs.length}`)
 			await Promise.all(gifs.map(gif => NsfwTools.checkGifTxid(gif.txid)))
+
+			//process a batch of images
+			logger(prefix, `processing ${images.length} images of ${imageQueue.length + images.length}`)
+			const imgRet: boolean[] = await Promise.all(images.map(image => NsfwTools.checkImageTxid(image.txid, image.content_type)))
+			logger(prefix, `processed ${trueCount(imgRet)} out of ${images.length} images successfully`)
 			
 			//process a batch of vids
 			logger(prefix, `processing ${vids.length} vids of ${vidQueue.length + vids.length}`)
@@ -122,9 +130,11 @@ export const rater = async()=>{
 		}
 
 		//try filling any empty queues
-		if(imageQueue.length === 0) imageQueue = await getImages()
-		if(gifQueue.length === 0) gifQueue = await getGifs()
 		if(vidQueue.length === 0) vidQueue = await getVids()
 		if(otherQueue.length === 0) otherQueue = await getOthers()
+
+		//refresh the image queues on every sinagle loop to keep current even with backlog
+		imageQueue = await getImages()
+		gifQueue = await getGifs()
 	}
 }

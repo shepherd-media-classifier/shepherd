@@ -19,6 +19,7 @@ import { HOST_URL, NO_DATA_TIMEOUT } from '../constants'
 import col from 'ansi-colors'
 import { axiosDataTimeout } from '../utils/axiosDataTimeout'
 import { corruptDataConfirmed, corruptDataMaybe, noDataFound404, oversizedPngFound, partialDataFound, timeoutInBatch } from './mark-txs'
+import { checkImageMime } from './image-filetype'
 
 
 // do this for all envs
@@ -58,12 +59,6 @@ export class NsfwTools {
 		return predictions
 	}
 
-	static checkImageUrl = async(url: string)=> {
-
-		const pic = await axiosDataTimeout(url)
-
-		return NsfwTools.checkImage(pic)
-	}
 
 	static checkGifTxid = async(txid: string)=> {
 
@@ -72,6 +67,11 @@ export class NsfwTools {
 		try {
 
 			const gif = await axiosDataTimeout(url)
+
+			const mimecheck = await checkImageMime(gif, ['image/gif'], txid)
+			if(!mimecheck){
+				return false;
+			}
 
 			const model = await NsfwTools.loadModel()
 			const framePredictions = await model.classifyGif(gif, {
@@ -121,6 +121,7 @@ export class NsfwTools {
 				...(true && score), //use some spread trickery to add non-null (or zero value) keys
 				last_update_date: new Date(),
 			})
+			return true
 
 		} catch (e) {
 
@@ -151,7 +152,9 @@ export class NsfwTools {
 			else{
 				logger(prefix, 'Error processing gif', url + ' ', e.name, ':', e.message)
 				logger(prefix, 'UNHANDLED', e)
+				return false
 			}
+			return true
 		}
 	}
 
@@ -165,8 +168,15 @@ export class NsfwTools {
 		const url = `${HOST_URL}${txid}`
 		
 		try {
+
+			const pic = await axiosDataTimeout(url)
+
+			const mimecheck = await checkImageMime(pic, ['image/jpeg', 'image/png', 'image/bmp'], txid)
+			if(!mimecheck){
+				return false;
+			}
 			
-			const predictions = await NsfwTools.checkImageUrl(url)
+			const predictions = await NsfwTools.checkImage(pic)
 			
 			/* our first attempt prediction formula: flagged = (porn + sexy + hentai) > 0.5 */
 
@@ -196,7 +206,7 @@ export class NsfwTools {
 				
 				last_update_date: new Date(),
 			})
-
+			return true
 
 		} catch (e) {
 
@@ -243,6 +253,12 @@ export class NsfwTools {
 					logger(prefix, 'bad data found', contentType, url)
 					await corruptDataConfirmed(txid)
 				}
+
+				// else if(reason === 'Message: Invalid PNG. Failed to initialize decoder.'){
+				// 	// unknown issue - too big maybe?
+				// 	logger(prefix, 'Invalid PNG. Failed to initialize decoder.', contentType, url)
+				// 	await partialDataFound(txid) // these images are opening in the browser
+				// }
 				
 				else{
 					logger(prefix, 'Unhandled "Invalid TF_Status: 3" found. reason:', reason, contentType, url)
@@ -255,15 +271,21 @@ export class NsfwTools {
 				await timeoutInBatch(txid)
 			}
 			
-			else if(e.response && e.response.status && e.response.status === 504){
-				// error in arweave.net somewhere, not important to us
-				logger(prefix, e.message, 'will automatically try again later') //do nothing, record remains in unprocessed queue
+			else if(
+				(e.response && e.response.status && e.response.status === 504)
+				|| (e.code && e.code === 'ECONNRESET')
+			){
+				// error in the gateway somewhere, not important to us
+				logger(txid, e.message, 'will automatically try again') //do nothing, record remains in unprocessed queue
+				return false;
 			}
 			
 			else{
 				logger(prefix, 'Error processing', url + ' ', e.name, ':', e.message)
 				logger(prefix, 'UNHANDLED', e)
+				return false;
 			}
+			return true;
 		}
 	}
 }
