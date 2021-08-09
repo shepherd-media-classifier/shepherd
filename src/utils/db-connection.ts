@@ -12,6 +12,9 @@ export default () => {
 	logger("creating new db connection");
 	const connection = knex({
 		client: 'pg',
+		pool: {
+			propagateCreateError: false,
+		},
 		connection: {
 			host: process.env.DB_HOST,
 			port: 5432,
