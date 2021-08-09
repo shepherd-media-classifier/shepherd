@@ -9,13 +9,19 @@ It creates & maintains a strict adult content blacklist. This should be loaded b
 >- Expect false positives. The aim is to have zero adult content get through.
 
 
+## Minimum System Requirements
+
+- at least 10GB of free disk space
+- windows: no specific requirements
+- linux: swap file or partition must exist
+- apple m1 silicon: cpu not yet supported
+- other arm cpus or macos x86: untested, test reports welcome!
+
 ## Prerequisites
 
-1. less than 3GB of free disk space
+1. install docker & docker-compose
 
-2. install docker & docker-compose
-
-3. install nodejs (the version should not matter)
+2. install nodejs (the version should not matter)
 
 3. create a `.env` file and enter all required values (e.g. `cp .env.example .env`)
 
@@ -23,7 +29,7 @@ It creates & maintains a strict adult content blacklist. This should be loaded b
 
 > Note well: Do **not** run 'npm install'
 
-Clone this repo and cd in to the `ar-blacklist` directory. Run this command
+Clone this repo and cd in to the `shepherd` directory. Run this command
 
 ```
 npm start
@@ -34,7 +40,7 @@ That's it!
 
 ### Initial Set Up
 
-On initial start it will take some time (maybe 24 hours for example) to read in and categorize all media files from the permaweb. Expect the server to run hot during this initial phase.
+On initial start it will take some time (maybe several days for example) to read in and categorize all media files from the permaweb. Expect the server to run hot during this initial phase.
 
 You can check on progress using logs
 ```
