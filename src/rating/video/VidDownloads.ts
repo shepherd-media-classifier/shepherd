@@ -42,5 +42,13 @@ export class VidDownloads implements Iterable<VidDownloadRecord> {
 		rimraf(VID_TMPDIR + vdl.txid, (e)=> e && logger(vdl.txid, 'Error deleting temp folder', e))
 		VidDownloads.array = VidDownloads.array.filter(d => d !== vdl)
 	}
+
+	public listIds = ()=> {
+		let ids: number[] = []
+		for (const item of this) {
+			ids.push(item.id)
+		}
+		return ids
+	}
 }
 

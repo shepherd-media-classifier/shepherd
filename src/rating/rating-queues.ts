@@ -6,6 +6,7 @@ import { unsupportedTypes, videoTypes, VID_TMPDIR_MAXSIZE } from '../constants'
 import { processVids } from './video/process-files'
 import { VidDownloads } from './video/VidDownloads'
 import { addToDownloads } from './video/downloader'
+import col from 'ansi-colors'
 
 const prefix = 'rating'
 const db = getDbConnection()
@@ -44,7 +45,7 @@ const getVids = async()=> {
 	const records = await db<TxRecord>('txs')
 	.whereNull('valid_data') //not processed yet
 	.whereIn('content_type', videoTypes)
-	.orderBy('last_update_date', 'desc')
+	.orderBy('last_update_date', 'asc') //'asc' because we pop()
 
 	const length = records.length
 	logger(prefix, length, 'videos found')
@@ -125,7 +126,7 @@ export const rater = async()=>{
 		
 		//start another video download
 		if((vidQueue.length > 0) && (vidDownloads.length() < 10) && (vidDownloads.size() < VID_TMPDIR_MAXSIZE)){
-			logger(prefix, `downloading one from ${vidQueue.length + 1} videos`)
+			logger(prefix, `downloading one from ${vidQueue.length} videos`)
 			let vid = vidQueue.pop() as TxRecord
 			await addToDownloads(vid)
 		}
@@ -146,12 +147,17 @@ export const rater = async()=>{
 			await sleep(30000)
 		}
 
-		//try filling any empty queues
-		if(vidQueue.length === 0) vidQueue = await getVids()
-		if(otherQueue.length === 0) otherQueue = await getOthers()
-
-		//refresh the image queues on every single loop to keep current even with a backlog
+		
+		//refresh the queues on every single loop to keep current even with a backlog
 		imageQueue = await getImages()
 		gifQueue = await getGifs()
+		if(otherQueue.length === 0) otherQueue = await getOthers()
+		vidQueue = await getVids()
+
+		//make sure we're not reloading inflight up vids
+		const inflight = vidDownloads.listIds()
+		while((vidQueue.length > 0) && inflight.includes(vidQueue[vidQueue.length-1].id)){
+			vidQueue.pop()
+		}
 	}
 }
