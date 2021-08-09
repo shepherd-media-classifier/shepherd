@@ -1,5 +1,5 @@
 import * as Gql from 'ar-gql'
-import { imageTypes, textTypes, videoTypes } from '../constants'
+import { HOST_URL, imageTypes, textTypes, videoTypes } from '../constants'
 import { StateRecord, TxScanned } from '../types'
 import getDbConnection from '../utils/db-connection'
 import { logger } from '../utils/logger'
@@ -132,7 +132,7 @@ const getContentType = async (txid: string) => {
 		}}
 	}}`
 
-	const {data: res} = await axios.post('https://arweave.net/graphql', JSON.stringify({query}), { 
+	const {data: res} = await axios.post(`${HOST_URL}/graphql`, JSON.stringify({query}), { 
 		headers: { 'Content-Type': 'application/json'}
 	})
 	const tags = res.data.transactions.edges[0].node.tags

@@ -20,6 +20,8 @@ const getImages = async()=> {
 		.orWhere({ content_type: 'image/jpeg'})
 		.orWhere({ content_type: 'image/png'})
 	})
+	.orderBy('last_update_date', 'desc')
+
 	const length = records.length
 	logger(prefix, length, 'images found')
 
@@ -30,6 +32,7 @@ const getGifs = async()=> {
 	const records = await db<TxRecord>('txs')
 	.whereNull('valid_data') //not processed yet
 	.where({ content_type: 'image/gif'})
+	.orderBy('last_update_date', 'desc')
 	
 	const length = records.length
 	logger(prefix, length, 'gifs found')
@@ -41,6 +44,7 @@ const getVids = async()=> {
 	const records = await db<TxRecord>('txs')
 	.whereNull('valid_data') //not processed yet
 	.whereIn('content_type', videoTypes)
+	.orderBy('last_update_date', 'desc')
 
 	const length = records.length
 	logger(prefix, length, 'videos found')
@@ -54,11 +58,13 @@ const getOthers = async()=> {
 	const otherImages = await db<TxRecord>('txs')
 	.whereNull('valid_data') //not processed yet
 	.whereIn('content_type', unsupportedTypes)
+	.orderBy('last_update_date', 'desc')
 
 	//all the bad txids - partial/corrupt/oversized/timeouts
 	const badDatas = await db<TxRecord>('txs')
 	.where({valid_data: false}) //potential bad data
 	.whereNull('flagged') //not processed
+	.orderBy('last_update_date', 'desc')
 
 	logger(prefix, otherImages.length, 'unsupported images.', badDatas.length, '"bad" txids')
 
@@ -67,6 +73,9 @@ const getOthers = async()=> {
 		...badDatas,
 	] 
 }
+
+// sum trues
+const trueCount = (results: boolean[]) => results.reduce((acc, curr)=> curr ? ++acc : acc, 0)
 
 export const rater = async()=>{
 
@@ -102,7 +111,8 @@ export const rater = async()=>{
 		if(imagesBacklog !== 0){
 			//process a batch of images
 			logger(prefix, `processing ${images.length} images of ${imageQueue.length + images.length}`)
-			await Promise.all(images.map(image => NsfwTools.checkImageTxid(image.txid, image.content_type)))
+			const imgRet: boolean[] = await Promise.all(images.map(image => NsfwTools.checkImageTxid(image.txid, image.content_type)))
+			logger(prefix, `processed ${trueCount(imgRet)} out of ${images.length} images successfully`)
 			
 			//process a batch of gifs
 			logger(prefix, `processing ${gifs.length} gifs of ${gifQueue.length + gifs.length}`)
@@ -137,9 +147,11 @@ export const rater = async()=>{
 		}
 
 		//try filling any empty queues
-		if(imageQueue.length === 0) imageQueue = await getImages()
-		if(gifQueue.length === 0) gifQueue = await getGifs()
 		if(vidQueue.length === 0) vidQueue = await getVids()
 		if(otherQueue.length === 0) otherQueue = await getOthers()
+
+		//refresh the image queues on every single loop to keep current even with a backlog
+		imageQueue = await getImages()
+		gifQueue = await getGifs()
 	}
 }

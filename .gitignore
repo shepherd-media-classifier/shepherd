@@ -8,3 +8,4 @@ NOTES.txt
 .vscode/settings.json
 postgres.build/*
 temp-screencaps/*
+*.tgz

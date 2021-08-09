@@ -1,5 +1,6 @@
 require('dotenv').config() //first line of entrypoint
 import axios from "axios"
+import { HOST_URL } from "../constants"
 import { StateRecord } from "../types"
 import dbConnection from "../utils/db-connection"
 import { logger } from "../utils/logger"
@@ -10,7 +11,7 @@ const prefix = 'scanner'
 //leave some space from weave head (trail behind) to avoid orphan forks and allow tx data to be uploaded
 const TRAIL_BEHIND = 15 
 
-const getTopBlock = async () => Number((await axios.get('https://arweave.net/info')).data.height)
+const getTopBlock = async () => Number((await axios.get(`${HOST_URL}/info`)).data.height)
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
