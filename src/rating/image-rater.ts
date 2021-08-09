@@ -254,11 +254,11 @@ export class NsfwTools {
 					await corruptDataConfirmed(txid)
 				}
 
-				// else if(reason === 'Message: Invalid PNG. Failed to initialize decoder.'){
-				// 	// unknown issue - too big maybe?
-				// 	logger(prefix, 'Invalid PNG. Failed to initialize decoder.', contentType, url)
-				// 	await partialDataFound(txid) // these images are opening in the browser
-				// }
+				else if(reason === 'Message: Invalid PNG. Failed to initialize decoder.'){
+					// unknown issue - too big maybe?
+					logger(prefix, 'Invalid PNG. Failed to initialize decoder.', contentType, url)
+					await partialDataFound(txid) // these images are opening in the browser
+				}
 				
 				else{
 					logger(prefix, 'Unhandled "Invalid TF_Status: 3" found. reason:', reason, contentType, url)
