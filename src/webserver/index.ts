@@ -3,7 +3,6 @@ import express from 'express'
 import { logger } from '../utils/logger'
 import { getBlacklist, getBlacklistTestOnly } from './blacklist'
 
-const prefix = 'server'
 
 const app = express()
 const port = (process.env.NODE_ENV === 'production') ? 80 : 3001
@@ -33,4 +32,4 @@ app.get('/nocache-testonly.html', async(req, res)=> {
 })
 
 
-app.listen(port, ()=> logger(prefix, `started on http://localhost:${port}`))
+app.listen(port, ()=> logger(`started on http://localhost:${port}`))

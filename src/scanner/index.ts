@@ -6,7 +6,6 @@ import dbConnection from "../utils/db-connection"
 import { logger } from "../utils/logger"
 import { scanBlocks } from "./scan-blocks"
 
-const prefix = 'scanner'
 
 //leave some space from weave head (trail behind) to avoid orphan forks and allow tx data to be uploaded
 const TRAIL_BEHIND = 15 
@@ -21,7 +20,7 @@ const waitForNewBlock =  async (height: number) => {
 		if(h >= height){
 			return h; //stop waiting
 		}
-		logger(prefix, 'weave height', h, 'synced to height', (h - TRAIL_BEHIND))
+		logger('info', 'weave height', h, 'synced to height', (h - TRAIL_BEHIND))
 		await sleep(30000)
 	}
 }
@@ -41,7 +40,7 @@ const scanner = async()=> {
 		let topBlock = await getTopBlock()
 		const initialHeight = topBlock // we do not want to keep calling getTopBlock during initial catch up phase
 
-		logger(prefix, 'Starting scanner position', position, 'and weave height', topBlock)
+		logger('initialising', 'Starting scanner position', position, 'and weave height', topBlock)
 
 		const calcBulkBlocks = (position: number) => {
 			if(position < 150000) return 1000
@@ -66,7 +65,7 @@ const scanner = async()=> {
 				}
 
 				const res = await scanBlocks(min, max)
-				logger(prefix, 
+				logger('results', 
 					'images', res.images.length, 
 					'videos', res.videos.length, 
 					'texts', res.texts.length,
@@ -78,12 +77,12 @@ const scanner = async()=> {
 				max = min + numOfBlocks - 1
 
 			} catch (e) {
-				logger(prefix, 'Error! Scanner fell over. Waiting 30 seconds to try again.')
+				logger('Error!', 'Scanner fell over. Waiting 30 seconds to try again.')
 				await sleep(30000)
 			}
 		}///end while(true)
 	} catch (e) {
-		logger(prefix, 'Error in scanner!\t', e.name, ':', e.message)
+		logger('Error in scanner!', e.name, ':', e.message)
 	}
 }
 scanner()

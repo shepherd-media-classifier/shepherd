@@ -25,7 +25,7 @@ import { checkImageMime } from './image-filetype'
 // do this for all envs
 tf.enableProdMode()
 
-const prefix = 'rating'
+const prefix = 'nsfwtools'
 
 const db = getDbConnection()
 

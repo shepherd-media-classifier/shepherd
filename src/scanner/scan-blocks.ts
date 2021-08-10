@@ -5,7 +5,6 @@ import getDbConnection from '../utils/db-connection'
 import { logger } from '../utils/logger'
 import axios from 'axios'
 
-const prefix = 'scanner'
 
 const db = getDbConnection()
 
@@ -79,12 +78,12 @@ export const scanBlocks = async (minBlock: number, maxBlock: number): Promise<IG
 					const result = await db<TxScanned>('txs').insert({txid, content_type, content_size})
 				}	catch(e){
 					if(e.code && Number(e.code) === 23505){
-						logger(prefix, 'Duplicate key value violates unique constraint', txid, e.detail) //prob just a dataItem
+						logger('info', 'Duplicate key value violates unique constraint', txid, e.detail) //prob just a dataItem
 					} else if(e.code && Number(e.code) === 23502){
-						logger(prefix, 'Null value in column violates not-null constraint', txid, e.detail) 
+						logger('Error!', 'Null value in column violates not-null constraint', txid, e.detail) 
 						throw e
 					} else { 
-						if(e.code) logger(prefix, e.code)
+						if(e.code) logger('Error!', e.code)
 						throw e
 					}
 				}
@@ -96,7 +95,7 @@ export const scanBlocks = async (minBlock: number, maxBlock: number): Promise<IG
 
 		/* get supported types metadata */
 
-		logger(prefix, `making three scans of ${((maxBlock - minBlock) + 1)} blocks, from block ${minBlock} to ${maxBlock}`)
+		logger('info', `making three scans of ${((maxBlock - minBlock) + 1)} blocks, from block ${minBlock} to ${maxBlock}`)
 		const images = await getRecords(imageTypes)
 		const videos = await getRecords(videoTypes)
 		
@@ -115,7 +114,7 @@ export const scanBlocks = async (minBlock: number, maxBlock: number): Promise<IG
 		}
 
 	} catch(e){
-		logger(prefix, e.name, ':', e.message)
+		logger('Error!', e.name, ':', e.message)
 		e.toJSON && logger(e.toJSON())
 		throw new Error("Error in scanBlocks. See above.")
 	}
@@ -124,7 +123,7 @@ export const scanBlocks = async (minBlock: number, maxBlock: number): Promise<IG
 /* This only gets called for media found in Bundles */
 const getContentType = async (txid: string) => {
 
-	logger(prefix, 'grabbing missing Content-Type', txid)
+	logger('info', 'grabbing missing Content-Type', txid)
 
 	const query = `query{ transactions(ids: ["${txid}"]){
 		edges{ node{ 

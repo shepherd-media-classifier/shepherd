@@ -8,7 +8,7 @@ import { VidDownloads } from './video/VidDownloads'
 import { addToDownloads } from './video/downloader'
 import col from 'ansi-colors'
 
-const prefix = 'rating'
+const prefix = 'queue'
 const db = getDbConnection()
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))

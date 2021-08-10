@@ -6,7 +6,7 @@ import { NsfwTools } from "../image-rater"
 import { updateDb } from '../mark-txs'
 
 
-const prefix = 'rating'
+const prefix = 'nsfwtool'
 
 export const checkFrames = async(frames: string[], txid: string)=> {
 	const videopath = frames.shift()
