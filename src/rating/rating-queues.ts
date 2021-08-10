@@ -145,6 +145,13 @@ export const rater = async()=>{
 			//all queues are empty so wait 30 seconds
 			logger(prefix, 'all rating queues at zero length')
 			await sleep(30000)
+		}else if(
+			imagesBacklog === 0 
+			&& vidDownloads.length() > 0
+			&& (vidDownloads.length() === 10 || vidQueue.length === 0)
+		){
+			logger('videos downloading...')
+			await sleep(5000)
 		}
 
 		
