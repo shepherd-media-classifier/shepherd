@@ -131,13 +131,13 @@ export const videoDownload = async(vid: VidDownloadRecord)=> {
 					vid.complete = 'TRUE'
 				}
 				// if(process.env.NODE_ENV === 'test') playVidFile_TEST_ONLY(vid.txid)
-				resolve(true)
+				vid.complete === 'TRUE' ? resolve(true) : resolve(false)
 			})
 	
 			stream.on('error', (e: Error)=>{
 				vid.complete = 'ERROR' //should be set already
 				filewriter.end()
-				e.message === 'aborted' ? resolve(true) : reject(e)
+				e.message === 'aborted' ? resolve(false) : reject(e)
 			})
 			
 		}catch(e){
@@ -149,14 +149,14 @@ export const videoDownload = async(vid: VidDownloadRecord)=> {
 			if(e.message === 'Request failed with status code 404'){
 				logger(vid.txid, 'Error 404 :', e.message)
 				dbNoDataFound404(vid.txid)
-				resolve(true)
+				resolve(false)
 			}else if(
 				e.message === 'Client network socket disconnected before secure TLS connection was established'
 				|| e.message === 'Request failed with status code 500'
 				|| e.message === 'Request failed with status code 504'
 			){
 				logger(vid.txid, e.message, 'Download will be retried')
-				resolve(true)
+				resolve(false)
 			}else{
 				logger(vid.txid, 'UNHANDLED ERROR in videoDownload', e.name, ':', e.message)
 				reject(e)

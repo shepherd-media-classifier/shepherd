@@ -69,7 +69,7 @@ export class NsfwTools {
 
 			const mimecheck = await checkImageMime(gif, ['image/gif'], txid)
 			if(!mimecheck){
-				return false;
+				return true;
 			}
 
 			const model = await NsfwTools.loadModel()
@@ -172,7 +172,7 @@ export class NsfwTools {
 
 			const mimecheck = await checkImageMime(pic, ['image/jpeg', 'image/png', 'image/bmp'], txid)
 			if(!mimecheck){
-				return false;
+				return true;
 			}
 			
 			const predictions = await NsfwTools.checkImage(pic)
@@ -265,14 +265,18 @@ export class NsfwTools {
 				}
 			}
 			
-			else if(e.message === `Timeout of ${NO_DATA_TIMEOUT}ms exceeded`){
+			else if(
+				(e.message === `Timeout of ${NO_DATA_TIMEOUT}ms exceeded`)
+				|| (!e.response && e.code && e.code === 'ECONNRESET')
+			){
 				logger(prefix, 'connection timed out. check again later', contentType, url)
 				await dbTimeoutInBatch(txid)
+				return false;
 			}
 			
 			else if(
 				( e.response && e.response.status && [500,504].includes(Number(e.response.status)) )
-				|| (e.code && e.code === 'ECONNRESET')
+				|| (e.response && e.code && e.code === 'ECONNRESET')
 			){
 				// error in the gateway somewhere, not important to us
 				logger(txid, e.message, 'image will automatically try again') //do nothing, record remains in unprocessed queue
