@@ -271,11 +271,11 @@ export class NsfwTools {
 			}
 			
 			else if(
-				(e.response && e.response.status && e.response.status === 504)
+				( e.response && e.response.status && [500,504].includes(Number(e.response.status)) )
 				|| (e.code && e.code === 'ECONNRESET')
 			){
 				// error in the gateway somewhere, not important to us
-				logger(prefix, e.message, 'will automatically try again') //do nothing, record remains in unprocessed queue
+				logger(txid, e.message, 'image will automatically try again') //do nothing, record remains in unprocessed queue
 				return false;
 			}
 			

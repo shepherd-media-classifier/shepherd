@@ -150,7 +150,10 @@ export const videoDownload = async(vid: VidDownloadRecord)=> {
 				logger(vid.txid, 'Error 404 :', e.message)
 				dbNoDataFound404(vid.txid)
 				resolve(true)
-			}else if(e.message === 'Client network socket disconnected before secure TLS connection was established'){
+			}else if(
+				e.message === 'Client network socket disconnected before secure TLS connection was established'
+				|| e.message === 'Request failed with status code 500'
+			){
 				logger(vid.txid, e.message, 'Download will be retried')
 				resolve(true)
 			}else{

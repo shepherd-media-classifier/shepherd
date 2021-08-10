@@ -114,9 +114,14 @@ export const scanBlocks = async (minBlock: number, maxBlock: number): Promise<IG
 		}
 
 	} catch(e){
-		logger('Error!', e.name, ':', e.message)
-		e.toJSON && logger(e.toJSON())
-		throw new Error("Error in scanBlocks. See above.")
+		if(e.message === 'Request failed with status code 504'){
+			logger('gateway error', e.message)
+		}else{
+			logger('Error!', e.name, ':', e.message)
+			e.toJSON && logger(e.toJSON())
+			logger("Error in scanBlocks. See above.")
+		}
+		throw e 
 	}
 }
 
