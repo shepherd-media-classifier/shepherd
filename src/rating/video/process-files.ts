@@ -39,10 +39,14 @@ export const processVids = async()=> {
 				}else if(e.message === 'No such file or directory'){
 					//we should not be in createScreencaps if there is no video file
 					throw e
-				}else if(e.message === 'Invalid data found when processing input'){
+				}else if(
+					e.message === 'Invalid data found when processing input'
+					|| e.message === 'ffout[1]:Error opening filters!'
+				){
+					logger(dl.txid, 'ffmpeg corrupt maybe:', e.message)
 					dbCorruptDataMaybe(dl.txid)
 				}else{
-					logger(dl.txid, 'ffmpeg: UNHANDLED error screencaps')
+					logger(dl.txid, 'ffmpeg: UNHANDLED error screencaps', e.message)
 					// dbCorruptDataMaybe(dl.txid)
 					throw e
 				}
