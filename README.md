@@ -1,3 +1,5 @@
+<img src="./shepherd-logo-github-social.png">
+
 # shepherd
 
 This server produces a blacklist that you can load in to an Arweave node, in order to protect it from storing and serving adult material.
