@@ -148,6 +148,13 @@ export class NsfwTools {
 				await dbTimeoutInBatch(txid)
 			}
 
+			else if(
+				e.response && e.response.status && [500,502,504].includes(Number(e.response.status))
+			){
+				logger(prefix, e.message, 'gif will automatically try again')
+				return false;
+			}
+
 			else{
 				logger(prefix, 'Error processing gif', url + ' ', e.name, ':', e.message)
 				logger(prefix, 'UNHANDLED', e)
@@ -275,7 +282,7 @@ export class NsfwTools {
 			}
 			
 			else if(
-				( e.response && e.response.status && [500,504].includes(Number(e.response.status)) )
+				( e.response && e.response.status && [500,502,504].includes(Number(e.response.status)) )
 				|| (e.response && e.code && e.code === 'ECONNRESET')
 			){
 				// error in the gateway somewhere, not important to us

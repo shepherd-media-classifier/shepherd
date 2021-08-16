@@ -154,6 +154,7 @@ export const videoDownload = async(vid: VidDownloadRecord)=> {
 				e.message === 'Client network socket disconnected before secure TLS connection was established'
 				|| e.message === 'Request failed with status code 500'
 				|| e.message === 'Request failed with status code 504'
+				|| e.message === 'Request failed with status code 502'
 			){
 				logger(vid.txid, e.message, 'Download will be retried')
 				resolve(false)

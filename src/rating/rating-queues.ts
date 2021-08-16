@@ -7,6 +7,7 @@ import { processVids } from './video/process-files'
 import { VidDownloads } from './video/VidDownloads'
 import { addToDownloads } from './video/downloader'
 import col from 'ansi-colors'
+import { performance } from 'perf_hooks'
 
 const prefix = 'queue'
 const db = getDbConnection()
@@ -150,16 +151,18 @@ export const rater = async()=>{
 			&& vidDownloads.length() > 0
 			&& (vidDownloads.length() === 10 || vidQueue.length === 0)
 		){
-			logger('videos downloading...')
+			logger(prefix, 'videos downloading...')
 			await sleep(5000)
 		}
 
-		
+		const t0 = performance.now()
 		//refresh the queues on every single loop to keep current even with a backlog
 		imageQueue = await getImages()
 		gifQueue = await getGifs()
 		if(otherQueue.length === 0) otherQueue = await getOthers()
 		vidQueue = await getVids()
+		const t1 = performance.now()
+		logger(prefix, 'sql queries took', (t1-t0).toFixed(2), 'ms to complete')
 
 		//make sure we're not reloading inflight up vids
 		const inflight = vidDownloads.listIds()
