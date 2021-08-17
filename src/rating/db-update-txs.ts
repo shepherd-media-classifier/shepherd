@@ -11,7 +11,7 @@ export const updateDb = async(txid: string, updates: Partial<TxRecord>)=> {
 
 	}catch(e){
 		logger(txid, 'ERROR WRITING TO DATABASE!', e.name, ':', e.message)
-		logger(txid, e) // `throw e` does nothing, use return
+		logger(txid, e) // `throw e` does nothing, use the return
 	}
 }
 
@@ -55,7 +55,7 @@ export const dbCorruptDataMaybe = async(txid: string)=> {
 export const dbPartialDataFound = async(txid: string)=> {
 	return updateDb(txid,{
 		// flagged: <= cannot flag yet! display with puppeteer & rate again
-		valid_data: false,
+		valid_data: false, // this removes it from current queue
 		data_reason: 'partial',
 		last_update_date: new Date(),
 	})
@@ -64,7 +64,7 @@ export const dbPartialDataFound = async(txid: string)=> {
 export const dbOversizedPngFound = async(txid: string)=> {
 	return updateDb(txid,{
 		// flagged: <= cannot flag yet! use tinypng, then rate again
-		valid_data: false,
+		valid_data: false, // this removes it from current queue
 		data_reason: 'oversized',
 		last_update_date: new Date(),
 	})
@@ -97,3 +97,11 @@ export const dbNoMimeType = async(txid: string)=> {
 	})
 }
 
+export const dbUnsupportedMimeType = async(txid: string)=> {
+	return updateDb(txid,{
+		// flagged: <= cannot flag yet! display with puppeteer & rate again
+		valid_data: false, // this removes it from current queue
+		data_reason: 'unsupported',
+		last_update_date: new Date(),
+	})
+}

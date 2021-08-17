@@ -263,48 +263,7 @@ describe('image-rating ad-hoc tests', ()=> {
 	// 	expect(true).to.be.true
 	// }).timeout(0)
 
-	it('tests new rating system for previously unflagged gifs', async()=>{
-
-		const db = getDbConnection()
-
-		try {
-
-			let records = await db<TxRecord>('txs').where({content_type: 'image/gif'})
-			
-			records.splice(0, 600) //skip a few
-
-			console.log('test', records.length, 'gif records found')
-
-			const BATCH = 10
-
-			while(records.length > BATCH){
-				let gifs = records.splice(0, BATCH)
-
-				await Promise.all(gifs.map( async(gif)=> {
-
-					//store current flagged
-					const original = gif.flagged
-					//run new algo
-					await NsfwTools.checkGifTxid(gif.txid)
-					//retrieve new value
-					const newRecord = await db<TxRecord>('txs').where({id: gif.id})
-					const newValue = newRecord[0].flagged
-
-					if(newValue === true){
-						logger('**** TEST ****', 'changed flag to', newValue, 
-						`for https://arweave.net/${gif.txid}`)
-					}
-				}))
-			}
-
-		} catch (e) {
-			console.log('CATCHING',e)
-			console.log(col.green('e.name:' + e.name))
-			console.log(col.green('e.message:' + e.message))
-		}
-		expect(true).to.be.true
-	}).timeout(0)
-
+	
 })
 
 

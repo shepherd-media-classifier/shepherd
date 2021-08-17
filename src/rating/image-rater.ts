@@ -1,295 +1,101 @@
-/**
- * nsfwjs rating system:
- * 
- * drawings - safe for work drawings (including anime)
- * neutral - safe for work neutral images
- * sexy - sexually explicit images, not pornography
- * hentai - hentai and pornographic drawings
- * porn - pornographic images, sexual acts
- * 
- * Supported formats: BMP, JPEG, PNG, or GIF (gif uses different api function)
- */
+import { RatingResult, RatingPluginInterface } from '../RatingPluginInterface'
 
 import { logger } from '../utils/logger'
-import * as tf from '@tensorflow/tfjs-node'
-import * as nsfw from 'nsfwjs'
+
 import getDbConnection from '../utils/db-connection'
-import { TxRecord } from '../types'
-import { HOST_URL, NO_DATA_TIMEOUT } from '../constants'
-import col from 'ansi-colors'
+import type { TxRecord } from '../types'
+import { HOST_URL, imageTypes, NO_DATA_TIMEOUT } from '../constants'
 import { axiosDataTimeout } from '../utils/axiosDataTimeout'
-import { dbCorruptDataConfirmed, dbCorruptDataMaybe, dbNoDataFound404, dbOversizedPngFound, dbPartialDataFound, dbTimeoutInBatch } from './mark-txs'
-import { checkImageMime } from './image-filetype'
+import { dbCorruptDataConfirmed, dbCorruptDataMaybe, dbNoDataFound404, dbNoMimeType, dbOversizedPngFound, dbPartialDataFound, dbTimeoutInBatch, dbWrongMimeType, updateDb } from './db-update-txs'
+import { checkImageMime, getImageMime } from './image-filetype'
+
+import RaterPlugin from '../NsfwjsPlugin'
 
 
-// do this for all envs
-tf.enableProdMode()
-
-const prefix = 'nsfwtools'
+const prefix = 'image-rating'
 
 const db = getDbConnection()
 
-//static everything to keep model in memory
-export class NsfwTools {
-	static _model: nsfw.NSFWJS
-	private constructor(){} //hide
+export const init = RaterPlugin.init
 
-	static async loadModel()   {
+export const checkImage = RaterPlugin.checkImage
 
-		if(NsfwTools._model){
-			// model already loaded
-			return NsfwTools._model
-		}
+export const checkImageTxid = async(txid: string, contentType: string)=> {
 
-		logger(prefix, 'loading model once')
+	/* handle all downloading & mimetype problems before sending to RaterPlugin */
 
-		NsfwTools._model = await nsfw.load('file://src/model/', {size: 299})
-		return NsfwTools._model
-	}
-
-	static checkImage = async(pic: Buffer)=> {
-
-		const model = await NsfwTools.loadModel()
+	const url = `${HOST_URL}/${txid}`
 	
-		const image = tf.node.decodeImage(pic,3) as tf.Tensor3D
-		
-		const predictions = await model.classify(image)
-		image.dispose() // explicit TensorFlow memory management
-	
-		return predictions
-	}
+	try {
 
-	static checkGifTxid = async(txid: string)=> {
+		const pic = await axiosDataTimeout(url) //catch errors below
 
-		const url = `${HOST_URL}/${txid}`
-
-		try {
-
-			const gif = await axiosDataTimeout(url)
-
-			const mimecheck = await checkImageMime(gif, ['image/gif'], txid)
-			if(!mimecheck){
-				return true;
-			}
-
-			const model = await NsfwTools.loadModel()
-			const framePredictions = await model.classifyGif(gif, {
-				topk: 1,
-				fps: 1,
-			})
-
-			let flagged = false
-			let score: {nsfw_hentai?: number, nsfw_porn?: number, nsfw_sexy?: number } = {}
-
-			for(const frame of framePredictions) {
-				const class1 = frame[0].className
-				const prob1 = frame[0].probability
-
-				if(class1 === 'Hentai'){
-					if(prob1 >= 0.5){
-						logger(prefix, 'hentai gif detected', url)
-						flagged = true
-						score.nsfw_hentai = prob1
-						break;
-					}
-					// logger(prefix, 'hentai < 0.5', url)
-				}
-				
-				if(class1 === 'Porn'){
-					logger(prefix, 'porn gif detected', url)
-					flagged = true
-					score.nsfw_porn = prob1
-					break;
-				}
-				
-				if(class1 === 'Sexy'){
-					logger(prefix, 'sexy gif detected', url)
-					flagged = true
-					score.nsfw_sexy = prob1
-					break;
-				}
-			}
-
-			// if(!flagged){ 
-			// 	logger(prefix, 'gif clean', url)
-			// }
-
-			await db<TxRecord>('txs').where({txid}).update({
-				flagged,
-				valid_data: true,
-				...(true && score), //use some spread trickery to add non-null (or zero value) keys
-				last_update_date: new Date(),
-			})
+		const mime = await getImageMime(pic)
+		if(mime === undefined){
+			logger(prefix, 'image mime-type found to be `undefined`. omitting from rating. Original:', contentType, txid)
+			await dbNoMimeType(txid)
 			return true
+		}else if(!mime.startsWith('image/')){
+			logger(prefix, `image mime-type found to be '${mime}'. updating record; will be automatically requeued. Original:`, contentType, txid)
+			await dbWrongMimeType(txid, mime)
+			return true
+		}
 
-		} catch (e) {
+		const results = await RaterPlugin.checkImage(pic, mime, txid)
 
-			/* handle all the bad data */
-
-			if(e.response && e.response.status === 404){
-				logger(prefix, 'no data found (404)', url)
-				await dbNoDataFound404(txid)
+		//TODO: remove this NsfwjsPlugin specific code later
+		let scores: {nsfw_hentai?: number, nsfw_porn?: number, nsfw_sexy?: number, nsfw_neutral?: number, nsfw_drawings?: number } = {}
+		if(results.scores){
+			let s = JSON.parse(results.scores)
+			// some rough type checking
+			if('nsfw_hentai' in s || 'nsfw_porn' in s || 'nsfw_sexy' in s || 'nsfw_neutral' in s || 'nsfw_drawings' in s ){
+				scores = s
 			}
+		}
 
-			else if(
-				e.message === 'Invalid GIF 87a/89a header.'
-				|| e.message.startsWith('Unknown gif block:')
-				|| e.message.startsWith('Invalid typed array length:')
-				|| e.message === 'Invalid block size'
-				|| e.message === 'Frame index out of range.'
-				|| e.message === 'aborted'
-			){
-				logger(prefix, `gif. probable corrupt data found (${e.message})`, url)
-				await dbCorruptDataMaybe(txid)
-			}
+		await updateDb(txid, {
+			flagged: results.flagged,
+			valid_data: results.valid_data,
+			data_reason: results.data_reason,
 
-			else if(e.message === `Timeout of ${NO_DATA_TIMEOUT}ms exceeded`){
-				logger(prefix, `Timeout of ${NO_DATA_TIMEOUT}ms exceeded`, url)
-				await dbTimeoutInBatch(txid)
-			}
+			//TODO: replace this specific NsfwjsPlugin score data in the DB
+			...(true && scores), //use some spread trickery to add non-null (or zero value) keys
 
-			else{
-				logger(prefix, 'Error processing gif', url + ' ', e.name, ':', e.message)
-				logger(prefix, 'UNHANDLED', e)
-				return false;
-			}
+			last_update_date: new Date(),
+		})
+		return true;
+	} catch (e) {
+
+		/* catch network issues & no data situations */
+
+		if(e.response && e.response.status === 404){
+			logger(prefix, 'no data found (404)', contentType, url)
+			await dbNoDataFound404(txid)
 			return true;
 		}
-	}
-
-	static checkImageTxid = async(txid: string, contentType: string)=> {
-
-		// process gifs separately
-		if(contentType === 'image/gif'){
-			return NsfwTools.checkGifTxid(txid)
-		}
-
-		const url = `${HOST_URL}/${txid}`
 		
-		try {
-
-			const pic = await axiosDataTimeout(url)
-
-			const mimecheck = await checkImageMime(pic, ['image/jpeg', 'image/png', 'image/bmp'], txid)
-			if(!mimecheck){
-				return true;
-			}
-			
-			const predictions = await NsfwTools.checkImage(pic)
-			
-			/* our first attempt prediction formula: flagged = (porn + sexy + hentai) > 0.5 */
-
-			//make prediction data easier to work with 
-			type Scores = Record<'Drawing' | 'Hentai' | 'Neutral' | 'Porn' | 'Sexy', number> 
-			let scores: Scores = {'Drawing': 0,	'Hentai': 0, 'Neutral': 0, 'Porn': 0, 'Sexy': 0}
-			for (const prediction of predictions) {
-				scores[prediction.className] = prediction.probability
-			}
-
-			let sum = scores['Porn'] + scores['Sexy'] + scores['Hentai']
-			const flagged = (sum > 0.5)
-	
-			if(flagged){
-				logger(prefix, url + ' ', flagged, JSON.stringify(scores))
-			}
-			
-			await db<TxRecord>('txs').where({txid: txid}).update({
-				flagged,
-				valid_data: true,
-				
-				nsfw_drawings: scores['Drawing'],
-				nsfw_hentai: scores['Hentai'],
-				nsfw_neutral: scores['Neutral'],
-				nsfw_porn: scores['Porn'],
-				nsfw_sexy: scores['Sexy'],
-				
-				last_update_date: new Date(),
-			})
-			return true;
-
-		} catch (e) {
-
-			/* catch all sorts of bad data */
-
-			if(
-				e.message === 'Expected image (BMP, JPEG, PNG, or GIF), but got unsupported image type'
-				&& (contentType === 'image/bmp' || contentType === 'image/jpeg' || contentType === 'image/png')
-			){
-				logger(prefix, 'probable corrupt data found', contentType, url)
-				await dbCorruptDataMaybe(txid)
-			}
-			
-			else if(e.response && e.response.status === 404){
-				logger(prefix, 'no data found (404)', contentType, url)
-				await dbNoDataFound404(txid)
-			}
-			
-			else if(e.message.startsWith('Invalid TF_Status: 3')){
-
-				/* Handle these errors depending on error reason given. */
-				const reason: string = e.message.split('\n')[1]
-				
-				if(
-					reason.startsWith('Message: Invalid PNG data, size')
-					|| reason === 'Message: jpeg::Uncompress failed. Invalid JPEG data or crop window.'
-				){
-					//partial image
-					logger(prefix, 'partial image found', contentType, url)
-					await dbPartialDataFound(txid)
-				}
-				
-				else if(reason === 'Message: PNG size too large for int: 23622 by 23622'){
-					//oversized png
-					logger(prefix, 'oversized png found', contentType, url)
-					await dbOversizedPngFound(txid)
-				}
-				
-				else if(
-					reason === 'Message: Input size should match (header_size + row_size * abs_height) but they differ by 2'
-					|| reason.startsWith('Message: Number of channels inherent in the image must be 1, 3 or 4, was')
-				){
-					// unreadable data
-					logger(prefix, 'bad data found', contentType, url)
-					await dbCorruptDataConfirmed(txid)
-				}
-
-				else if(reason === 'Message: Invalid PNG. Failed to initialize decoder.'){
-					// unknown issue - too big maybe?
-					logger(prefix, 'Invalid PNG. Failed to initialize decoder.', contentType, url)
-					await dbPartialDataFound(txid) // these images are opening in the browser
-				}
-				
-				else{
-					logger(prefix, 'Unhandled "Invalid TF_Status: 3" found. reason:', reason, contentType, url)
-					logger(prefix, 'UNHANDLED', e)
-				}
-			}
-			
-			else if(
-				(e.message === `Timeout of ${NO_DATA_TIMEOUT}ms exceeded`)
-				|| (!e.response && e.code && e.code === 'ECONNRESET')
-			){
-				logger(prefix, 'connection timed out. check again later', contentType, url)
-				await dbTimeoutInBatch(txid)
-				return false;
-			}
-			
-			else if(
-				( e.response && e.response.status && [500,504].includes(Number(e.response.status)) )
-				|| (e.response && e.code && e.code === 'ECONNRESET')
-			){
-				// error in the gateway somewhere, not important to us
-				logger(txid, e.message, 'image will automatically try again') //do nothing, record remains in unprocessed queue
-				return false;
-			}
-			
-			else{
-				logger(prefix, 'Error processing', url + ' ', e.name, ':', e.message)
-				logger(prefix, 'UNHANDLED', e)
-				return false;
-			}
-			return true;
+		else if(
+			(e.message === `Timeout of ${NO_DATA_TIMEOUT}ms exceeded`)
+			// || (!e.response && e.code && e.code === 'ECONNRESET')
+		){
+			logger(prefix, 'connection timed out. check again later', contentType, url)
+			await dbTimeoutInBatch(txid)
 		}
+		
+		else if(
+			( e.response && e.response.status && [500,504].includes(Number(e.response.status)) )
+			// || (e.response && e.code && e.code === 'ECONNRESET')
+		){
+			// error in the gateway somewhere, not important to us
+			logger(txid, e.message, 'image will automatically retry downloading') //do nothing, record remains in unprocessed queue
+		}
+		
+		else{
+			logger(prefix, 'UNHANDLED Error processing', url + ' ', e.name, ':', e.message)
+			// logger(prefix, 'UNHANDLED', e)
+			throw e
+		}
+		return false;
 	}
 }
 

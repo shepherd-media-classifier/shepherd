@@ -91,6 +91,9 @@ describe('video-prepare tests', ()=> {
 		const frames = await createScreencaps(vid.txid) 
 		const res = await checkFrames(frames, vid.txid) 
 		expect(res).to.exist
+
+console.log(col.bgYellowBright.blackBright(JSON.stringify(res)))
+
 		if(res){ expect(res[0].txid).equal(vid.txid) }
 	}).timeout(0)
 	

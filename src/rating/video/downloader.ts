@@ -5,7 +5,7 @@ import filetype, { FileTypeResult } from "file-type";
 import { IncomingMessage } from "http";
 import { HOST_URL, NO_STREAM_TIMEOUT, VID_TMPDIR, VID_TMPDIR_MAXSIZE } from "../../constants";
 import { logger } from "../../utils/logger";
-import { dbNoDataFound, dbNoDataFound404, dbNoMimeType, dbWrongMimeType } from "../mark-txs";
+import { dbNoDataFound, dbNoDataFound404, dbNoMimeType, dbWrongMimeType } from "../db-update-txs";
 import { VidDownloadRecord, VidDownloads } from "./VidDownloads";
 import { TxRecord } from "../../types";
 

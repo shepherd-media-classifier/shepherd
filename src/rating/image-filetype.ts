@@ -1,6 +1,6 @@
 import filetype from 'file-type'
 import { logger } from '../utils/logger'
-import { dbNoMimeType, dbWrongMimeType } from './mark-txs'
+import { dbNoMimeType, dbWrongMimeType } from './db-update-txs'
 
 export const checkImageMime = async(buffer: Uint8Array, types: string[], txid: string)=> {
 	const type = await filetype.fromBuffer(buffer)
@@ -15,4 +15,10 @@ export const checkImageMime = async(buffer: Uint8Array, types: string[], txid: s
 	logger(txid, 'wrong mime-type. re-queueing for', type.mime)
 	await dbWrongMimeType(txid, type.mime)
 	return false;
+}
+
+export const getImageMime = async(buffer: Uint8Array)=> {
+	const type = await filetype.fromBuffer(buffer)
+	if(type === undefined) return undefined
+	return type.mime;
 }

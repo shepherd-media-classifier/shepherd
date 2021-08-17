@@ -37,21 +37,25 @@ export const createScreencaps = async(txid: string)=> {
 		const errMsg: string = e.message.split(':').pop().trim()
 		const err: FfmpegError = { name: 'FfmpegError', message: errMsg, status: e.status }
 		
+		if(
+			(errMsg === 'Invalid data found when processing input')
+		){
+			throw err
+		}
+		
 		/* give correct error when there is no video stream in the file */
 		const hasVideoStream = (e.message as string).match(/Stream #([0-9\:]+)([a-z0-9\(\)\[\]]*): Video/g) ? true : false
 		if(!hasVideoStream){
 			err.message = 'no video stream'
 			throw err
 		}
-		
+
 		/* get a better error mesage in certain cases */
 		const errMsgLines = errMsg.split(EOL)
 		if(errMsgLines.length > 0){
 			err.message = 'ffout[1]:' + errMsgLines[1]
 			throw err
 		}
-		
-		throw err
 	}
 }
 

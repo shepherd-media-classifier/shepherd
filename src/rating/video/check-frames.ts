@@ -1,9 +1,8 @@
 import fs from 'fs'
 import { HOST_URL } from '../../constants'
-import { TxRecord } from '../../types'
 import { logger } from '../../utils/logger'
-import { NsfwTools } from "../image-rater"
-import { updateDb } from '../mark-txs'
+import * as ImageRating from "../image-rater"
+import { updateDb } from '../db-update-txs'
 
 
 const prefix = 'nsfwtool'
@@ -14,36 +13,27 @@ export const checkFrames = async(frames: string[], txid: string)=> {
 
 	const vidUrl = HOST_URL + '/' + videopath!.split('/').pop()
 
-	//go through caps. break if nsfw found
 	let flagged = false
-	let score: Partial<{nsfw_hentai: number, nsfw_porn: number, nsfw_sexy: number }> = {}
 
+	//TODO: change this NsfwjsPlugin specific scores code later
+	let scores: {nsfw_hentai?: number, nsfw_porn?: number, nsfw_sexy?: number, nsfw_neutral?: number, nsfw_drawings?: number } = {}
+	
+	//loop through caps. break if flagged image found
 	for (const frame of frames) {
 		const pic = fs.readFileSync(frame)
-		const predictions = await NsfwTools.checkImage(pic)
-		const class1 = predictions[0].className
-		const prob1 = predictions[0].probability
-		
-		if(class1 === 'Hentai'){
-			if(prob1 >= 0.5){
-				logger(txid, 'hentai video detected', vidUrl)
-				flagged = true
-				score.nsfw_hentai = prob1
-			}else{
-				logger(txid, 'hentai < 0.5', vidUrl)
-			}
-			break;
-		}
-		if(class1 === 'Porn'){
-			logger(txid, 'porn video detected', vidUrl)
+		const result = await ImageRating.checkImage(pic, 'image/png', txid)
+		if(result.flagged){
 			flagged = true
-			score.nsfw_porn = prob1
-			break;
-		}
-		if(class1 === 'Sexy'){
-			logger(txid, 'sexy video detected', vidUrl)
-			flagged = true
-			score.nsfw_sexy = prob1
+
+			//TODO: remove this NsfwjsPlugin specific code later
+			if(result.scores){
+				let s = JSON.parse(result.scores)
+				// some rough type checking
+				if('nsfw_hentai' in s || 'nsfw_porn' in s || 'nsfw_sexy' in s || 'nsfw_neutral' in s || 'nsfw_drawings' in s ){
+					scores = s
+				}
+			}//EO code to remove
+
 			break;
 		}
 	}
@@ -51,13 +41,13 @@ export const checkFrames = async(frames: string[], txid: string)=> {
 		logger(txid, 'video clean', vidUrl)
 	}
 	if(process.env.NODE_ENV !== 'production'){
-		logger(txid, flagged, score, vidUrl)
+		logger(txid, flagged, scores, vidUrl)
 	}
 
 	return updateDb(txid,{
 		flagged,
 		valid_data: true,
-		...(true && score), //use some spread trickery to add non-null (or zero value) keys
+		...(true && scores), //use some spread trickery to add non-null (or zero value) keys
 		last_update_date: new Date(),
 	})
 }
