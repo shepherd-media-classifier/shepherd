@@ -8,7 +8,7 @@ CREATE TABLE txs (
 	id SERIAL PRIMARY KEY,
 	txid CHARACTER(43) UNIQUE NOT NULL,
 	content_type TEXT NOT NULL,
-	content_size INTEGER NOT NULL,
+	content_size BIGINT NOT NULL,
 	flagged BOOLEAN,
 	valid_data BOOLEAN,
 	data_reason TEXT,
