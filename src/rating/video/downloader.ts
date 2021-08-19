@@ -72,7 +72,7 @@ export const videoDownload = async(vid: VidDownloadRecord)=> {
 				logger(vid.txid, 'content-length. gql:', vid.content_size, 'header:', contentLength)
 				vid.content_size = contentLength
 			}
-			
+
 			timer = setTimeout( ()=>{
 				source.cancel()
 				logger(vid.txid, `setTimeout ${NO_STREAM_TIMEOUT} ms exceeded`)
@@ -167,15 +167,17 @@ export const videoDownload = async(vid: VidDownloadRecord)=> {
 			}
 			vid.complete = 'ERROR'
 			filewriter.end()
-			if(e.message === 'Request failed with status code 404'){
+			let status = 0
+			if(e.response && e.response.status){
+				status = Number(e.response.status)
+			}
+			if(status === 404){
 				logger(vid.txid, 'Error 404 :', e.message)
 				dbNoDataFound404(vid.txid)
 				resolve(false)
 			}else if(
 				e.message === 'Client network socket disconnected before secure TLS connection was established'
-				|| e.message === 'Request failed with status code 500'
-				|| e.message === 'Request failed with status code 504'
-				|| e.message === 'Request failed with status code 502'
+				|| [500,502,504].includes(status)
 			){
 				logger(vid.txid, e.message, 'Download will be retried')
 				resolve(false)
