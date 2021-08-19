@@ -5,7 +5,7 @@ import filetype, { FileTypeResult } from "file-type";
 import { IncomingMessage } from "http";
 import { HOST_URL, NO_STREAM_TIMEOUT, VID_TMPDIR, VID_TMPDIR_MAXSIZE } from "../../constants";
 import { logger } from "../../utils/logger";
-import { dbNoDataFound, dbNoDataFound404, dbNoMimeType, dbWrongMimeType } from "../mark-txs";
+import { dbNoDataFound, dbNoDataFound404, dbNoMimeType, dbPartialVideoFound, dbWrongMimeType } from "../mark-txs";
 import { VidDownloadRecord, VidDownloads } from "./VidDownloads";
 import { TxRecord } from "../../types";
 
@@ -24,6 +24,8 @@ export const addToDownloads = async(vid: TxRecord)=> {
 		//call async as likely large download
 		videoDownload( dl ).then( (res)=> {
 			logger(dl.txid, 'finished downloading', res)
+		}).catch(e =>{
+			logger(dl.txid, 'error downloading', e)
 		})
 	}catch(e){
 		logger(dl.txid, e.message)
@@ -70,7 +72,7 @@ export const videoDownload = async(vid: VidDownloadRecord)=> {
 				logger(vid.txid, 'content-length. gql:', vid.content_size, 'header:', contentLength)
 				vid.content_size = contentLength
 			}
-
+			
 			timer = setTimeout( ()=>{
 				source.cancel()
 				logger(vid.txid, `setTimeout ${NO_STREAM_TIMEOUT} ms exceeded`)
@@ -81,15 +83,18 @@ export const videoDownload = async(vid: VidDownloadRecord)=> {
 			
 			let mimeNotFound = true
 			let filehead = new Uint8Array(0)
+			let filesizeDownloaded = 0
 
 			const fileTypeGood = (res: FileTypeResult | undefined)=>{
 				if(res === undefined){
 					logger(vid.txid, 'no file-type found:', res)
 					dbNoMimeType(vid.txid)
+					vid.content_type = 'undefined'
 					return false
 				}else if(!res.mime.startsWith('video/')){
 					logger(vid.txid, 'invalid video file-type:', res.mime)
 					dbWrongMimeType(vid.txid, res.mime)
+					vid.content_type = res.mime
 					return false
 				}
 				logger(vid.txid, 'detected mime:', res.mime)
@@ -112,6 +117,7 @@ export const videoDownload = async(vid: VidDownloadRecord)=> {
 						}
 					}
 				}
+				filesizeDownloaded += chunk.length
 					
 				filewriter.write(chunk)
 			})
@@ -120,6 +126,7 @@ export const videoDownload = async(vid: VidDownloadRecord)=> {
 				filewriter.end()
 
 				if(mimeNotFound){
+					mimeNotFound = false
 					const res = await filetype.fromBuffer(filehead)
 					logger(vid.txid, 'mime was not found during download:', res)
 					if(!fileTypeGood(res)){
@@ -134,10 +141,24 @@ export const videoDownload = async(vid: VidDownloadRecord)=> {
 				vid.complete === 'TRUE' ? resolve(true) : resolve(false)
 			})
 	
-			stream.on('error', (e: Error)=>{
-				vid.complete = 'ERROR' //should be set already
+			stream.on('error', (e: any)=>{
+				console.log('**DEBUG**:', JSON.stringify(e), JSON.stringify(vid))
 				filewriter.end()
-				e.message === 'aborted' ? resolve(false) : reject(e)
+				if(e.message && e.message === 'aborted'){
+					logger(vid.txid, 'Error: aborted')
+					if(filesizeDownloaded > 0 && !mimeNotFound && vid.content_type !== 'undefined'){ 
+						logger(vid.txid, 'partial-seed video found')
+						dbPartialVideoFound(vid.txid) 
+						vid.complete = 'TRUE'
+						resolve(true)
+					}else{
+						vid.complete = 'ERROR'
+						resolve('aborted')
+					}
+				}else{
+					vid.complete = 'ERROR'
+					reject(JSON.stringify(e))
+				}
 			})
 			
 		}catch(e){

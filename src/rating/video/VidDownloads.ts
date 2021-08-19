@@ -36,7 +36,7 @@ export class VidDownloads implements Iterable<VidDownloadRecord> {
 	}
 
 	/* extra methods */
-	public size = ()=> VidDownloads.array.reduce((acc, curr)=> acc + curr.content_size, 0)
+	public size = ()=> VidDownloads.array.reduce((acc, curr)=> acc + Number(curr.content_size), 0)
 
 	public cleanup = (vdl: VidDownloadRecord)=> {
 		rimraf(VID_TMPDIR + vdl.txid, (e)=> e && logger(vdl.txid, 'Error deleting temp folder', e))

@@ -61,6 +61,15 @@ export const dbPartialDataFound = async(txid: string)=> {
 	})
 }
 
+export const dbPartialVideoFound = async(txid: string)=> {
+	return updateDb(txid,{
+		// flagged: undefined,
+		// valid_data: undefined,
+		data_reason: 'partial-seed', //check later if fully seeded
+		last_update_date: new Date(),
+	})
+}
+
 export const dbOversizedPngFound = async(txid: string)=> {
 	return updateDb(txid,{
 		// flagged: <= cannot flag yet! use tinypng, then rate again
