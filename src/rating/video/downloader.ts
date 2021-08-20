@@ -24,6 +24,8 @@ export const addToDownloads = async(vid: TxRecord)=> {
 		//call async as likely large download
 		videoDownload( dl ).then( (res)=> {
 			logger(dl.txid, 'finished downloading', res)
+		}).catch(e =>{
+			logger(dl.txid, 'error downloading', e)
 		})
 	}catch(e){
 		logger(dl.txid, e.message)
@@ -81,15 +83,18 @@ export const videoDownload = async(vid: VidDownloadRecord)=> {
 			
 			let mimeNotFound = true
 			let filehead = new Uint8Array(0)
+			let filesizeDownloaded = 0
 
 			const fileTypeGood = (res: FileTypeResult | undefined)=>{
 				if(res === undefined){
 					logger(vid.txid, 'no file-type found:', res)
 					dbNoMimeType(vid.txid)
+					vid.content_type = 'undefined'
 					return false
 				}else if(!res.mime.startsWith('video/')){
 					logger(vid.txid, 'invalid video file-type:', res.mime)
 					dbWrongMimeType(vid.txid, res.mime)
+					vid.content_type = res.mime
 					return false
 				}
 				logger(vid.txid, 'detected mime:', res.mime)
@@ -112,6 +117,7 @@ export const videoDownload = async(vid: VidDownloadRecord)=> {
 						}
 					}
 				}
+				filesizeDownloaded += chunk.length
 					
 				filewriter.write(chunk)
 			})
@@ -120,6 +126,7 @@ export const videoDownload = async(vid: VidDownloadRecord)=> {
 				filewriter.end()
 
 				if(mimeNotFound){
+					mimeNotFound = false
 					const res = await filetype.fromBuffer(filehead)
 					logger(vid.txid, 'mime was not found during download:', res)
 					if(!fileTypeGood(res)){
@@ -134,10 +141,24 @@ export const videoDownload = async(vid: VidDownloadRecord)=> {
 				vid.complete === 'TRUE' ? resolve(true) : resolve(false)
 			})
 	
-			stream.on('error', (e: Error)=>{
-				vid.complete = 'ERROR' //should be set already
+			stream.on('error', (e: any)=>{
+				console.log('**DEBUG**:', JSON.stringify(e), JSON.stringify(vid))
 				filewriter.end()
-				e.message === 'aborted' ? resolve(false) : reject(e)
+				if(e.message && e.message === 'aborted'){
+					logger(vid.txid, 'Error: aborted')
+					if(filesizeDownloaded > 0 && !mimeNotFound && vid.content_type !== 'undefined'){ 
+						logger(vid.txid, 'partial-seed video found')
+						dbPartialVideoFound(vid.txid) 
+						vid.complete = 'TRUE'
+						resolve(true)
+					}else{
+						vid.complete = 'ERROR'
+						resolve('aborted')
+					}
+				}else{
+					vid.complete = 'ERROR'
+					reject(JSON.stringify(e))
+				}
 			})
 			
 		}catch(e){
@@ -146,17 +167,20 @@ export const videoDownload = async(vid: VidDownloadRecord)=> {
 			}
 			vid.complete = 'ERROR'
 			filewriter.end()
-			if(e.message === 'Request failed with status code 404'){
+			let status = 0
+			if(e.response && e.response.status){
+				status = Number(e.response.status)
+			}
+			if(status === 404){
 				logger(vid.txid, 'Error 404 :', e.message)
 				dbNoDataFound404(vid.txid)
-				resolve(false)
+				resolve(404)
 			}else if(
 				e.message === 'Client network socket disconnected before secure TLS connection was established'
-				|| e.message === 'Request failed with status code 500'
-				|| e.message === 'Request failed with status code 504'
+				|| [500,502,504].includes(status)
 			){
 				logger(vid.txid, e.message, 'Download will be retried')
-				resolve(false)
+				resolve('gateway error')
 			}else{
 				logger(vid.txid, 'UNHANDLED ERROR in videoDownload', e.name, ':', e.message)
 				reject(e)

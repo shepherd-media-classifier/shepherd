@@ -39,6 +39,13 @@ export const checkImageTxid = async(txid: string, contentType: string)=> {
 			logger(prefix, `image mime-type found to be '${mime}'. updating record; will be automatically requeued. Original:`, contentType, txid)
 			await dbWrongMimeType(txid, mime)
 			return true
+			else if(
+				e.response && e.response.status && [500,502,504].includes(Number(e.response.status))
+			){
+				logger(prefix, e.message, 'gif will automatically try again')
+				return false;
+			}
+
 		}
 
 		const results = await RaterPlugin.checkImage(pic, mime, txid)
@@ -83,7 +90,7 @@ export const checkImageTxid = async(txid: string, contentType: string)=> {
 		}
 		
 		else if(
-			( e.response && e.response.status && [500,504].includes(Number(e.response.status)) )
+				( e.response && e.response.status && [500,502,504].includes(Number(e.response.status)) )
 			// || (e.response && e.code && e.code === 'ECONNRESET')
 		){
 			// error in the gateway somewhere, not important to us
