@@ -6,11 +6,14 @@ const db = getDbConnection()
 
 export const updateDb = async(txid: string, updates: Partial<TxRecord>)=> {
 	try{
-
-		return await db<TxRecord>('txs').where({txid}).update(updates, ['txid'])
+		const checkId = await db<TxRecord>('txs').where({txid}).update(updates, 'txid')
+		if(checkId[0] !== txid){
+			logger(txid, 'ERROR UPDATING DATABASE!', JSON.stringify(updates))
+		}
+		return checkId[0];
 
 	}catch(e){
-		logger(txid, 'ERROR WRITING TO DATABASE!', e.name, ':', e.message)
+		logger(txid, 'ERROR UPDATING DATABASE!', e.name, ':', e.message)
 		logger(txid, e) // `throw e` does nothing, use the return
 	}
 }

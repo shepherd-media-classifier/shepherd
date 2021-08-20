@@ -9,3 +9,4 @@ NOTES.txt
 postgres.build/*
 temp-screencaps/*
 *.tgz
+.vscode

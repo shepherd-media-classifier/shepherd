@@ -1,4 +1,5 @@
 require('dotenv').config() //first line of entrypoint
+process.env['NODE_ENV'] = 'test'
 import { expect } from 'chai'
 import { checkFrames } from '../src/rating/video/check-frames'
 import { createScreencaps } from '../src/rating/video/screencaps'
@@ -12,10 +13,13 @@ import { exec } from 'shelljs'
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
+
 describe('video-prepare tests', ()=> {
 
 	before(()=>{
 		rimraf('temp-screencaps/./*', (e)=>e&&console.log('error in before cleaning tempdir'))
+
+		//TODO: create the test txid entries in txs DB if they do not already exist
 	})
 
 	afterEach(()=>{
@@ -86,15 +90,13 @@ describe('video-prepare tests', ()=> {
 			txid: 'Uq1EEdlNvM-rjqerjPHhPMv3oBAHu9DysIjQNq0YTdk',
 			content_type: 'video/mp4',
 		}
+		// exec(`ffplay https://arweave.net/${vid.txid}`)
 		await videoDownload(vid)
 		while(vid.complete === 'FALSE') await sleep(500)
 		const frames = await createScreencaps(vid.txid) 
-		const res = await checkFrames(frames, vid.txid) 
-		expect(res).to.exist
-
-console.log(col.bgYellowBright.blackBright(JSON.stringify(res)))
-
-		if(res){ expect(res[0].txid).equal(vid.txid) }
+		const checkId = await checkFrames(frames, vid.txid) 
+		expect(checkId).to.exist
+		if(checkId){ expect(checkId).equal(vid.txid) }
 	}).timeout(0)
 	
 	it('6. full processing of a video', async()=>{

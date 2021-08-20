@@ -1,7 +1,8 @@
 require('dotenv').config() //first line of entrypoint
+process.env['NODE_ENV'] = 'test'
 import col from 'ansi-colors'
 import { expect } from 'chai'
-import { NsfwTools } from '../src/rating/image-rater'
+import * as imageRater from '../src/rating/image-rater'
 import getDbConnection from '../src/utils/db-connection'
 import { TxRecord } from '../src/types'
 import { logger } from '../src/utils/logger'
@@ -12,7 +13,7 @@ describe('image-rating ad-hoc tests', ()=> {
 
 	before( async()=>{
 
-		await NsfwTools.loadModel()
+		await imageRater.init()
 
 	})
 
