@@ -5,7 +5,7 @@ import filetype, { FileTypeResult } from "file-type";
 import { IncomingMessage } from "http";
 import { HOST_URL, NO_STREAM_TIMEOUT, VID_TMPDIR, VID_TMPDIR_MAXSIZE } from "../../constants";
 import { logger } from "../../utils/logger";
-import { dbNoDataFound, dbNoDataFound404, dbNoMimeType, dbWrongMimeType } from "../db-update-txs";
+import { dbNoDataFound, dbNoDataFound404, dbNoMimeType, dbPartialVideoFound, dbWrongMimeType } from "../db-update-txs";
 import { VidDownloadRecord, VidDownloads } from "./VidDownloads";
 import { TxRecord } from "../../types";
 
@@ -24,28 +24,14 @@ export const addToDownloads = async(vid: TxRecord)=> {
 		//call async as likely large download
 		videoDownload( dl ).then( (res)=> {
 			logger(dl.txid, 'finished downloading', res)
-		}).catch(e =>{
-			logger(dl.txid, 'error downloading', e)
 		})
 	}catch(e){
 		logger(dl.txid, e.message)
 		throw e
 	}
 
-	logger(vid.txid, vid.content_size, 'downloading video', downloads.size(), '/', VID_TMPDIR_MAXSIZE, `${downloads.length()}/10`)
-}
-
-const playVidFile_TEST_ONLY = (txid:string)=>{
-	const path = VID_TMPDIR + txid + '/' + txid
-	exec('ffplay ' + path, (err, stdout, stderr)=> {
-		if(err){
-			logger(txid, `exec error: ${err}`)
-			return
-		}
-		logger(txid, `stdout: ${stdout}`)
-		logger(txid, `stderr: ${stderr}`)
-	})
-	exec('start https://arweave.net/' + txid)
+	const mb = 1024*1024
+	logger(vid.txid, vid.content_size, `downloading video ${downloads.size()/mb}MB/${VID_TMPDIR_MAXSIZE/mb}MB`, `${downloads.length()}/10`)
 }
 
 export const videoDownload = async(vid: VidDownloadRecord)=> {
@@ -111,8 +97,9 @@ export const videoDownload = async(vid: VidDownloadRecord)=> {
 						mimeNotFound = false
 						const res = await filetype.fromBuffer(filehead)
 						if(!fileTypeGood(res)){
-							vid.complete = 'ERROR'
 							source.cancel()
+							filesizeDownloaded = 0 //reset so no partial-seed detected
+							vid.complete = 'ERROR'
 							return;
 						}
 					}

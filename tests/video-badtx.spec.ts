@@ -10,7 +10,7 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
 describe('video bad tx handling tests', ()=> {
 
-	it('7mRWvWP5KPoDfmpbGYILChc9bjjXpiPhxuhXwlnODik: ffmpeg (ffprobe) corrupt data found', async()=>{
+	it('7mRWvWP5KPoDfmpbGYILChc9bjjXpiPhxuhXwlnODik: ffmpeg found corrupt data', async()=>{
 		//@ts-ignore
 		const badData: VidDownloadRecord = {
 			complete: 'FALSE',
@@ -29,12 +29,12 @@ describe('video bad tx handling tests', ()=> {
 		}
 	}).timeout(0)
 
-	it('TXID: expect `no video stream` error', async()=>{
+	it('u54MK6zX3B0hjRqQqGzHn1m7ZGCsHNTWvFOrc0oBbCQ: expect `no video stream` error', async()=>{
 		//@ts-ignore
 		const badData: VidDownloadRecord = {
 			complete: 'FALSE',
 			content_size: 262144,
-			txid: 'lfbQP25SHaii9jY8UYyUMI5W83Kl7wZhPCW7WZrlnX4', // audio only
+			txid: 'u54MK6zX3B0hjRqQqGzHn1m7ZGCsHNTWvFOrc0oBbCQ', // audio only
 		}
 		try{
 			const res = await videoDownload(badData)
@@ -44,7 +44,7 @@ describe('video bad tx handling tests', ()=> {
 			const frames = await createScreencaps(badData.txid)
 			expect(true).false //err if we get here 
 		}catch(e){
-			expect(e.message).eq('no video  stream')
+			expect(e.message).eq('no video stream')
 		}
 	}).timeout(0)
 	
@@ -55,12 +55,10 @@ describe('video bad tx handling tests', ()=> {
 			content_size: 0,
 			txid: 'SxP57BAAiZB0WEipA0_LtyQJ0SY51DwI4vE4N03ykJ0', // error 404
 		}
-		try{
-			const res = await videoDownload(badData)
-			expect(true).false //err if we get here 
-		}catch(e){
-			expect(e.message).eq('Request failed with status code 404')
-		}
+		//this does not throw an error, just gets handled.
+		const res = await videoDownload(badData)
+		expect(res).eq(404)
+		expect(badData.complete).eq('ERROR')
 	}).timeout(0)
 
 

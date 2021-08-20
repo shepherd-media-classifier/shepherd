@@ -39,13 +39,6 @@ export const checkImageTxid = async(txid: string, contentType: string)=> {
 			logger(prefix, `image mime-type found to be '${mime}'. updating record; will be automatically requeued. Original:`, contentType, txid)
 			await dbWrongMimeType(txid, mime)
 			return true
-			else if(
-				e.response && e.response.status && [500,502,504].includes(Number(e.response.status))
-			){
-				logger(prefix, e.message, 'gif will automatically try again')
-				return false;
-			}
-
 		}
 
 		const results = await RaterPlugin.checkImage(pic, mime, txid)
@@ -74,8 +67,12 @@ export const checkImageTxid = async(txid: string, contentType: string)=> {
 	} catch (e) {
 
 		/* catch network issues & no data situations */
+		let status = 0
+		if(e.response && e.response.status){
+			status = Number(e.response.status)
+		}
 
-		if(e.response && e.response.status === 404){
+		if(status === 404){
 			logger(prefix, 'no data found (404)', contentType, url)
 			await dbNoDataFound404(txid)
 			return true;
@@ -90,7 +87,7 @@ export const checkImageTxid = async(txid: string, contentType: string)=> {
 		}
 		
 		else if(
-				( e.response && e.response.status && [500,502,504].includes(Number(e.response.status)) )
+				[500,502,504].includes(status)
 			// || (e.response && e.code && e.code === 'ECONNRESET')
 		){
 			// error in the gateway somewhere, not important to us
