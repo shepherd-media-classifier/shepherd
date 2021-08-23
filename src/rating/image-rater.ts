@@ -39,6 +39,9 @@ export const checkImageTxid = async(txid: string, contentType: string)=> {
 			logger(prefix, `image mime-type found to be '${mime}'. updating record; will be automatically requeued. Original:`, contentType, txid)
 			await dbWrongMimeType(txid, mime)
 			return true
+		}else if(mime !== contentType){
+			logger(prefix, `updating image mime from '${contentType}' to '${mime} and resuming`, txid)
+			await dbWrongMimeType(txid, mime)
 		}
 
 		const results = await RaterPlugin.checkImage(pic, mime, txid)
@@ -87,16 +90,16 @@ export const checkImageTxid = async(txid: string, contentType: string)=> {
 		}
 		
 		else if(
-				[500,502,504].includes(status)
-			// || (e.response && e.code && e.code === 'ECONNRESET')
+			[500,502,504].includes(status)
+			|| (e.code && e.code === 'ETIMEDOUT')
 		){
 			// error in the gateway somewhere, not important to us
 			logger(txid, e.message, 'image will automatically retry downloading') //do nothing, record remains in unprocessed queue
 		}
 		
 		else{
-			logger(prefix, 'UNHANDLED Error processing', url + ' ', e.name, ':', e.message)
-			// logger(prefix, 'UNHANDLED', e)
+			logger(prefix, 'UNHANDLED Error processing', url + ' ', status, ':', e.message)
+			logger(prefix, 'UNHANDLED', e)
 			throw e
 		}
 		return false;

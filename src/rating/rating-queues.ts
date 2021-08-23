@@ -7,6 +7,7 @@ import { VidDownloads } from './video/VidDownloads'
 import { addToDownloads } from './video/downloader'
 import col from 'ansi-colors'
 import * as ImageRating from './image-rater'
+import { performance } from 'perf_hooks'
 
 const prefix = 'queue'
 const db = getDbConnection()

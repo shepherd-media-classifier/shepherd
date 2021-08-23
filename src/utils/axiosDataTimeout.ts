@@ -11,14 +11,18 @@ export const axiosDataTimeout = async(url: string)=> {
 	 */
 
 	const source = axios.CancelToken.source()
-	const timer = setTimeout( ()=>source.cancel(), NO_DATA_TIMEOUT )
+	const timer = setTimeout( ()=> {
+		if(process.env.NODE_ENV==='test') logger('** DEBUG **', 'entered setTimeout for', url)
+		source.cancel()
+	}, NO_DATA_TIMEOUT )
 
 	try{
 		
 		const res = await axios.get(url, {
 			cancelToken: source.token,
 			responseType: 'arraybuffer',
-		//  onDownloadProgress: ()=> clearTimeout(timer), //browser only
+			//  onDownloadProgress: ()=> clearTimeout(timer), //browser only
+			// timeout: 0, //default 0
 		})
 		clearTimeout(timer)
 

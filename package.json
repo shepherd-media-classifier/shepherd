@@ -14,6 +14,7 @@
     "docker:rating": "docker-compose up --build rating",
     "docker:scanner": "docker-compose up --build scanner",
     "docker:webserver": "docker-compose up --build webserver",
+    "test:img": "mocha -r ts-node/register tests/image-prepare.spec.ts",
     "test:vid": "mocha -r ts-node/register tests/video-prepare.spec.ts",
     "test:vidbad": "mocha -r ts-node/register tests/video-badtx.spec.ts",
     "test": "mocha -r ts-node/register tests/**/*.spec.ts",

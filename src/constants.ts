@@ -43,7 +43,7 @@ export const textTypes = [
 ]
 
 // axios workaround timeouts
-export const NO_DATA_TIMEOUT = 60000
+export const NO_DATA_TIMEOUT = 40000
 export const NO_STREAM_TIMEOUT = 10000
 
 // temp dir for video processing
@@ -52,3 +52,4 @@ export const VID_TMPDIR_MAXSIZE = 8 * 1024 * 1024 * 1024 // 2 GB <=TODO: should 
 
 // switch gateways
 export const HOST_URL = 'https://arweave.net'
+// export const HOST_URL = 'https://arweave.dev'
