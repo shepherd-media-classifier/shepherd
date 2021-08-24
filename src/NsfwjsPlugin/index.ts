@@ -10,10 +10,10 @@
  * Supported formats: BMP, JPEG, PNG, or GIF (gif uses different api function)
  */
 
-import { RatingPluginInterface } from "../RatingPluginInterface";
+import { FilterPluginInterface } from "../FilterPluginInterface";
 import { NsfwTools } from "./NsfwTools";
 
-const NsfwjsPlugin: RatingPluginInterface = {
+const NsfwjsPlugin: FilterPluginInterface = {
 	init: NsfwTools.init,
 	checkImage: NsfwTools.checkImage,
 }

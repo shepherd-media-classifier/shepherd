@@ -1,4 +1,4 @@
-import { RatingResult, RatingPluginInterface } from '../RatingPluginInterface'
+import { FilterResult, FilterPluginInterface } from '../FilterPluginInterface'
 
 import { logger } from '../utils/logger'
 
@@ -9,16 +9,16 @@ import { axiosDataTimeout } from '../utils/axiosDataTimeout'
 import { dbCorruptDataConfirmed, dbCorruptDataMaybe, dbNoDataFound404, dbNoMimeType, dbOversizedPngFound, dbPartialDataFound, dbTimeoutInBatch, dbWrongMimeType, updateDb } from './db-update-txs'
 import { checkImageMime, getImageMime } from './image-filetype'
 
-import RaterPlugin from '../NsfwjsPlugin'
+import FilterPlugin from '../NsfwjsPlugin'
 
 
 const prefix = 'image-rating'
 
 const db = getDbConnection()
 
-export const init = RaterPlugin.init
+export const init = FilterPlugin.init
 
-export const checkImage = RaterPlugin.checkImage
+export const checkImage = FilterPlugin.checkImage
 
 export const checkImageTxid = async(txid: string, contentType: string)=> {
 
@@ -44,7 +44,7 @@ export const checkImageTxid = async(txid: string, contentType: string)=> {
 			await dbWrongMimeType(txid, mime)
 		}
 
-		const results = await RaterPlugin.checkImage(pic, mime, txid)
+		const results = await FilterPlugin.checkImage(pic, mime, txid)
 
 		//TODO: remove this NsfwjsPlugin specific code later
 		let scores: {nsfw_hentai?: number, nsfw_porn?: number, nsfw_sexy?: number, nsfw_neutral?: number, nsfw_drawings?: number } = {}

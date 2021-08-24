@@ -1,7 +1,7 @@
 import * as tf from '@tensorflow/tfjs-node'
 import * as nsfw from 'nsfwjs'
 import { logger } from '../utils/logger'
-import { RatingPluginInterface, RatingResult } from '../RatingPluginInterface'
+import { FilterPluginInterface, FilterResult } from '../FilterPluginInterface'
 
 
 const prefix = 'nsfwjs-plugin'
@@ -9,52 +9,8 @@ const prefix = 'nsfwjs-plugin'
 // do this for all envs
 tf.enableProdMode()
 
-
-// export class NsfwjsPlugin implements RatingPluginInterface {
-// 	/* properties */
-// 	private _model: nsfw.NSFWJS | undefined
-
-// 	/* singleton boilerplate */
-// 	private static instance: NsfwjsPlugin
-// 	private constructor(){} //hide
-// 	public static async getInstance(): Promise<NsfwjsPlugin> {
-// 		if(!NsfwjsPlugin.instance){
-// 			NsfwjsPlugin.instance = new NsfwjsPlugin()
-// 			NsfwjsPlugin.instance._model = await nsfw.load('file://src/nsfwjs/model/', {size: 299})
-// 		}
-// 		return NsfwjsPlugin.instance;
-// 	}
-	
-// 	/* RatingPluginInterface methods */
-// 	init = async()=>{
-// 		if(this._model !== undefined){
-// 			return;
-// 		}
-// 		logger(prefix, 'loading model once')
-// 		this._model = await nsfw.load('file://src/nsfwjs/model/', {size: 299})
-// 	}
-// 	async checkImage(buffer: Buffer, mimetype: string, txid: string): Promise<RatingResult>{
-// 		await this.init() // just in case
-// 		return {
-// 			flagged: undefined, 
-// 			valid_data: undefined,
-// 		}
-// 	}	
-
-// 	/* private functions */
-// 	checkSingleImage = async(pic: Buffer)=> {
-
-// 		const image = tf.node.decodeImage(pic,3) as tf.Tensor3D
-		
-// 		const predictions = await this._model.classify(image)
-// 		image.dispose() // explicit TensorFlow memory management
-	
-// 		return predictions
-// 	}
-// }
-
 export class NsfwTools {
-	private static _return: RatingResult
+	private static _return: FilterResult
 
 	private static _model: nsfw.NSFWJS
 	private constructor(){} //hide
@@ -64,7 +20,6 @@ export class NsfwTools {
 	}
 
 	static async loadModel()   {
-
 		if(NsfwTools._model){
 			// model already loaded
 			return NsfwTools._model
@@ -88,9 +43,9 @@ export class NsfwTools {
 		return predictions
 	}
 
-	static checkGif = async(gif: Buffer, txid: string): Promise<RatingResult>=> {
+	static checkGif = async(gif: Buffer, txid: string): Promise<FilterResult>=> {
 
-		const result: RatingResult = {
+		const result: FilterResult = {
 			flagged: false,
 			valid_data: true,
 		}
@@ -139,12 +94,6 @@ export class NsfwTools {
 				result.err_message = 'gif clean'
 			}
 
-			// await db<TxRecord>('txs').where({txid}).update({
-			// 	flagged,
-			// 	valid_data: true,
-			// 	...(true && score), //use some spread trickery to add non-null (or zero value) keys
-			// 	last_update_date: new Date(),
-			// })
 			result.scores = JSON.stringify(score)
 			return result;
 
@@ -175,7 +124,7 @@ export class NsfwTools {
 		}
 	}
 
-	static checkImage = async(pic: Buffer, contentType: string, txid: string): Promise<RatingResult> => {
+	static checkImage = async(pic: Buffer, contentType: string, txid: string): Promise<FilterResult> => {
 
 		// Currently we only support these types:
 		if( !["image/bmp", "image/jpeg", "image/png", "image/gif"].includes(contentType) ){

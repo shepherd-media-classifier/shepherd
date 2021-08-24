@@ -6,7 +6,7 @@ import { processVids } from './video/process-files'
 import { VidDownloads } from './video/VidDownloads'
 import { addToDownloads } from './video/downloader'
 import col from 'ansi-colors'
-import * as ImageRating from './image-rater'
+import * as ImageFiltering from './filter-host'
 import { performance } from 'perf_hooks'
 
 const prefix = 'queue'
@@ -83,7 +83,7 @@ export const rater = async()=>{
 
 	/* initialise. load nsfw tf model */
 
-	await ImageRating.init()
+	await ImageFiltering.init()
 	
 	/* get backlog queues */
 
@@ -113,12 +113,12 @@ export const rater = async()=>{
 		if(imagesBacklog !== 0){
 			//process a batch of images
 			logger(prefix, `processing ${images.length} images of ${imageQueue.length + images.length}`)
-			const imgRet: boolean[] = await Promise.all(images.map(image => ImageRating.checkImageTxid(image.txid, image.content_type)))
+			const imgRet: boolean[] = await Promise.all(images.map(image => ImageFiltering.checkImageTxid(image.txid, image.content_type)))
 			logger(prefix, `processed ${trueCount(imgRet)} out of ${images.length} images successfully`)
 			
 			//process a batch of gifs
 			logger(prefix, `processing ${gifs.length} gifs of ${gifQueue.length + gifs.length}`)
-			await Promise.all(gifs.map(gif => ImageRating.checkImageTxid(gif.txid, gif.content_type)))
+			await Promise.all(gifs.map(gif => ImageFiltering.checkImageTxid(gif.txid, gif.content_type)))
 			
 			// //process a batch of others
 			// logger(prefix, `processing ${others.length} others of ${otherQueue.length + others.length}`)

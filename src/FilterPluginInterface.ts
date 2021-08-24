@@ -1,11 +1,11 @@
-export interface RatingResult {
+export interface FilterResult {
 	flagged: boolean | undefined
 	valid_data: boolean | undefined
 	data_reason?: 'oversized' | 'partial' | 'unsupported' | 'corrupt' | (string & {})
 	err_message?: string // might help plugin dev?
 	scores?: string	// just something to query when detection goes wrong?
 }
-export interface RatingPluginInterface {
+export interface FilterPluginInterface {
 	/**
 	 * init()
 	 * This will be called early to instantiate your rater plugin. You should do things like load AI models here.
@@ -17,5 +17,5 @@ export interface RatingPluginInterface {
 	 * @param mimetype - the mime-type indicated
 	 * @param txid - the Arweave txid, useful for debugging against the actual served data
 	 */
-	checkImage(buffer: Buffer, mimetype: string, txid: string): Promise<RatingResult>
+	checkImage(buffer: Buffer, mimetype: string, txid: string): Promise<FilterResult>
 }
