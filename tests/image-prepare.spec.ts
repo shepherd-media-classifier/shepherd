@@ -2,7 +2,7 @@ require('dotenv').config() //first line of entrypoint
 process.env['NODE_ENV'] = 'test'
 import col from 'ansi-colors'
 import { expect } from 'chai'
-import * as imageRater from '../src/rating/image-rater'
+import * as imageFilter from '../src/rating/filter-host'
 import getDbConnection from '../src/utils/db-connection'
 import { TxRecord } from '../src/types'
 import { logger } from '../src/utils/logger'
@@ -72,7 +72,7 @@ describe('rating-plugin-host tests', ()=> {
 
 
 	it('tests handling 404 image', async()=>{
-		const res = await imageRater.checkImageTxid(tx404, 'image/png')
+		const res = await imageFilter.checkImageTxid(tx404, 'image/png')
 		expect(res).true // true: handled the 404
 		
 		const check = await db<TxRecord>('txs').where({ txid: tx404})
@@ -81,7 +81,7 @@ describe('rating-plugin-host tests', ()=> {
 	}).timeout(0)
 
 	it('tests handling image with non-image mimetype', async()=>{
-		const res = await imageRater.checkImageTxid(txNonImageMime, 'image/png')
+		const res = await imageFilter.checkImageTxid(txNonImageMime, 'image/png')
 		expect(res).true // true: handled the wrong mimetype
 		
 		const check = await db<TxRecord>('txs').where({ txid: txNonImageMime})
@@ -90,7 +90,7 @@ describe('rating-plugin-host tests', ()=> {
 	}).timeout(0)
 
 	it('tests handling image with wrong image mimetype', async()=>{
-		const res = await imageRater.checkImageTxid(txWrongImageMime, 'image/jpeg')
+		const res = await imageFilter.checkImageTxid(txWrongImageMime, 'image/jpeg')
 		expect(res).true // true: handled the wrong mimetype
 		
 		const check = await db<TxRecord>('txs').where({ txid: txWrongImageMime})
@@ -99,7 +99,7 @@ describe('rating-plugin-host tests', ()=> {
 	}).timeout(0)
 
 	it('tests handling corrupt image: mimetype undefined', async()=>{
-		const res = await imageRater.checkImageTxid(txCorrupt, 'image/png')
+		const res = await imageFilter.checkImageTxid(txCorrupt, 'image/png')
 		expect(res).true // true: handled it
 		
 		const check = await db<TxRecord>('txs').where({ txid: txCorrupt})
@@ -108,7 +108,7 @@ describe('rating-plugin-host tests', ()=> {
 	}).timeout(0)
 
 	it('tests handling image file timeout while downloading', async()=>{
-		const res = await imageRater.checkImageTxid(txTimeout, 'image/png')
+		const res = await imageFilter.checkImageTxid(txTimeout, 'image/png')
 		expect(res).false // false: will handle later
 		
 		const check = await db<TxRecord>('txs').where({ txid: txTimeout})
