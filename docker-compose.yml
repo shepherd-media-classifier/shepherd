@@ -28,39 +28,39 @@ services:
     restart: always
     depends_on:
       - scanner
-  http-api:
-    build: 
-      context: ./services
-      target: http-api
-    environment: 
-      DB_HOST: ${DB_HOST:-pgdb}
-      PROCESS_NAME: http-api
-      SLACK_WEBHOOK: ${SLACK_WEBHOOK}
-      SLACK_POSITIVE: ${SLACK_POSITIVE}
-    # ports: 
-    #   - '84:84'
-    restart: always
-    depends_on:
-      - scanner
-  feeder:
-    build:
-      context: ./services
-      target: feeder
-    environment:
-      PROCESS_NAME: feeder
-      DB_HOST: ${DB_HOST:-pgdb}
-      SLACK_WEBHOOK: ${SLACK_WEBHOOK:-}
-    depends_on: 
-      - scanner
-  fetchers:
-    build: 
-      context: ./services
-      target: fetchers
-    environment:
-      PROCESS_NAME: fetchers
-      DB_HOST: ${DB_HOST:-pgdb}
-      STREAMS_PER_FETCHER: ${STREAMS_PER_FETCHER:-50}
-      SLACK_WEBHOOK: ${SLACK_WEBHOOK:-}
-    depends_on:
-      - scanner
+  # http-api:
+  #   build: 
+  #     context: ./services
+  #     target: http-api
+  #   environment: 
+  #     DB_HOST: ${DB_HOST:-pgdb}
+  #     PROCESS_NAME: http-api
+  #     SLACK_WEBHOOK: ${SLACK_WEBHOOK}
+  #     SLACK_POSITIVE: ${SLACK_POSITIVE}
+  #   # ports: 
+  #   #   - '84:84'
+  #   restart: always
+  #   depends_on:
+  #     - scanner
+  # feeder:
+  #   build:
+  #     context: ./services
+  #     target: feeder
+  #   environment:
+  #     PROCESS_NAME: feeder
+  #     DB_HOST: ${DB_HOST:-pgdb}
+  #     SLACK_WEBHOOK: ${SLACK_WEBHOOK:-}
+  #   depends_on: 
+  #     - scanner
+  # fetchers:
+  #   build: 
+  #     context: ./services
+  #     target: fetchers
+  #   environment:
+  #     PROCESS_NAME: fetchers
+  #     DB_HOST: ${DB_HOST:-pgdb}
+  #     STREAMS_PER_FETCHER: ${STREAMS_PER_FETCHER:-50}
+  #     SLACK_WEBHOOK: ${SLACK_WEBHOOK:-}
+  #   depends_on:
+  #     - scanner
   
