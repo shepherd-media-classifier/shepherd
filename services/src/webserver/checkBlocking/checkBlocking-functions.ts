@@ -11,6 +11,7 @@ import readline from 'readline'
 import { logger } from "../../common/shepherd-plugin-interfaces/logger";
 import { slackLogger } from "../../common/utils/slackLogger";
 import { slackLoggerPositive } from "../../common/utils/slackLoggerPositive";
+import { slackLoggerProbe } from "../../common/utils/slackLoggerProbe";
 import { getBlacklist, getRangelist } from "../blacklist";
 import { fetch_checkBlocking } from "./fetch-checkBlocking";
 import { LogEvent } from './log-event-type'
@@ -135,6 +136,7 @@ export const checkBlocked = async (url: string, item: string, server: string) =>
 			contentLength: headers.get('content-length'),
 		}
 		logger(logevent) // for aws notificitions
+		slackLoggerProbe('alarm', `server: ${server}, status: ${status}, x-trace: ${logevent.xtrace}, age: ${logevent.age}`)
 
 		// logger(prefix, `WARNING! ${item} not blocked on ${url} (status: ${status}), xtrace: '${headers.get('x-trace')}', age: '${headers.get('age')}', content-length: '${headers.get('content-length')}'`)
 
