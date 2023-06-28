@@ -3,6 +3,7 @@ import { logger } from '../common/shepherd-plugin-interfaces/logger'
 import { slackLogger } from '../common/utils/slackLogger'
 import { network_EXXX_codes } from '../common/constants'
 import { pluginResultHandler } from './pluginResultHandler'
+import { findMovableRecords, moveInboxToTxs } from './move-records'
 
 
 const prefix = 'http-api'
@@ -41,6 +42,33 @@ app.post('/postupdate', async(req, res)=>{
 		slackLogger('UNHANDLED Error =>', `${e.name} (${e.code}) : ${e.message}`)
 		console.log(e)
 		res.sendStatus(500)
+	}
+})
+
+app.post('/moverecords', async(req, res)=> {
+	const height = req.body.height
+	if(typeof height !== 'number'){
+		res.setHeader('Content-Type', 'text/plain')
+		res.status(400).send('height must be a number')
+		return;
+	}
+	try{
+
+		await moveInboxToTxs(
+			await findMovableRecords(height)
+		)
+
+		res.sendStatus(200)
+
+	}catch(e){
+		logger(prefix, 
+			`UNHANDLED ERROR in '/moverecords'. Request body: ${JSON.stringify(req.body)}.`,
+			`Error: ${JSON.stringify(e)}`
+		)
+		slackLogger(prefix, 
+			`UNHANDLED ERROR in '/moverecords'. Request body: ${JSON.stringify(req.body)}.`,
+			`Error: ${JSON.stringify(e)}`
+		)
 	}
 })
 
