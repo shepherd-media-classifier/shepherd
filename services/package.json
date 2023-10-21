@@ -2,9 +2,9 @@
   "name": "shepherd",
   "version": "0.1.1",
   "description": "Server that creates & maintains a strict adult content filter list.",
-  "main": "build/index.js",
-  "types": "build/index.d.ts",
+  "type": "module",
   "scripts": {
+    "migrate": "NODE_OPTIONS='--loader ts-node/esm' knex migrate:latest",
     "typecheck": "tsc --noEmit",
     "start": "docker-compose up --build -d",
     "logs": "docker-compose logs -f --tail=15",
@@ -20,7 +20,9 @@
       "ts"
     ],
     "node-option": [
-      "require=ts-node/register"
+      "loader=ts-node/esm",
+      "experimental-specifier-resolution=node",
+      "no-warnings"
     ]
   },
   "keywords": [],

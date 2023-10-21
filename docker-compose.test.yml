@@ -51,16 +51,3 @@ services:
       - s3-local
       - sqs-local
 
-  # ## will there be e2e testing here??
-  # plugin:
-  #   extends:
-  #     file: ./addons/${PLUGIN:-nsfw}/docker-compose.yml
-  #     service: ${PLUGIN:-nsfw}
-  #   depends_on:
-  #     - sqs-local-test
-  #     - s3-local-test
-  #     - pgdb-test
-  #   entrypoint: ["npm", "test"]
-
-# networks:
-#   shep-test-nw:
