@@ -1,4 +1,4 @@
-import { S3 } from 'aws-sdk'
+import * as AWS from 'aws-sdk'
 import { Readable } from 'stream'
 import { FetchersStatus } from '../common/constants'
 import { dbCorruptDataConfirmed, dbMalformedXMLData } from '../common/utils/db-update-txs'
@@ -13,7 +13,7 @@ console.assert(process.env.AWS_SECRET_ACCESS_KEY, 'process.env.AWS_SECRET_ACCESS
 console.assert(process.env.AWS_INPUT_BUCKET, 'process.env.AWS_INPUT_BUCKET is undefined')
 
 
-const s3 = new S3({
+const s3 = new AWS.S3({
 	apiVersion: '2006-03-01',
 	...(process.env.S3_LOCAL==='yes' && {
 		endpoint: process.env.S3_LOCAL_ENDPOINT!,
@@ -46,7 +46,7 @@ export const s3UploadStream = async(readable: Readable, mimetype: string, txid: 
 		}
 	})
 
-	let uploader: S3.ManagedUpload
+	let uploader: AWS.S3.ManagedUpload
 	try{
 
 		uploader = s3.upload({
