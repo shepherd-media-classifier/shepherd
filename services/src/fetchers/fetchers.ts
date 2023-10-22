@@ -1,4 +1,4 @@
-import { SQS } from 'aws-sdk'
+import { Message, SQS } from '@aws-sdk/client-sqs'
 import axios, { AxiosError } from 'axios'
 import { FEEDER_Q_VISIBILITY_TIMEOUT, FetchersStatus, HOST_URL, NO_STREAM_TIMEOUT, network_EXXX_codes } from '../common/constants'
 import { TxScanned } from '../common/shepherd-plugin-interfaces/types'
@@ -19,7 +19,7 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 const sqs = new SQS({
 	apiVersion: '2012-11-05',
 	...(process.env.SQS_LOCAL==='yes' && { endpoint: 'http://sqs-local:9324', region: 'dummy-value' }),
-	maxRetries: 10, //default 3
+	maxAttempts: 10,
 })
 
 // debug output for sanity
@@ -28,21 +28,21 @@ console.log('process.env.AWS_FEEDER_QUEUE', process.env.AWS_FEEDER_QUEUE)
 console.log('sqs.config.endpoint', sqs.config.endpoint)
 console.log('process.env.STREAMS_PER_FETCHER', process.env.STREAMS_PER_FETCHER)
 
-const getMessages = async(): Promise<SQS.Message[]> => {
+const getMessages = async(): Promise<Message[]> => {
 	const { Messages } = await sqs.receiveMessage({
 		QueueUrl,
 		MaxNumberOfMessages: 10,
 		MessageAttributeNames: ['All'],
 		VisibilityTimeout: FEEDER_Q_VISIBILITY_TIMEOUT,
 		WaitTimeSeconds: 0,
-	}).promise()
+	})
 	const msgs = Messages! || []
 	// logger(prefix, `received ${msgs.length} messages`)
 
 	return msgs
 }
 //exported for test
-let _messages: SQS.Message[] = []
+let _messages: Message[] = []
 let _loading = false
 export const getMessage = async()=> {
 
@@ -60,12 +60,12 @@ export const getMessage = async()=> {
 }
 
 //exported for test
-export const deleteMessage = async(msg: SQS.Message)=> {
+export const deleteMessage = async(msg: Message)=> {
 	try{
 		await sqs.deleteMessage({
 			ReceiptHandle: msg.ReceiptHandle!,
 			QueueUrl,
-		}).promise()
+		})
 	}catch(e){
 		if(e instanceof Error){
 			if(e.name === 'UnknownEndpoint'){

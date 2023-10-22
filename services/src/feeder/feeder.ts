@@ -1,7 +1,7 @@
 import { TxRecord, InflightsRecord } from '../common/shepherd-plugin-interfaces/types'
 import dbConnection from '../common/utils/db-connection'
 import { logger } from '../common/utils/logger'
-import { SQS } from 'aws-sdk'
+import { BatchResultErrorEntry, SQS, SendMessageBatchRequestEntry } from '@aws-sdk/client-sqs'
 import { performance } from 'perf_hooks'
 import { slackLogger } from '../common/utils/slackLogger'
 
@@ -15,7 +15,7 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 const sqs = new SQS({
 	apiVersion: '2012-11-05',
 	...(process.env.SQS_LOCAL==='yes' && { endpoint: 'http://sqs-local:9324', region: 'dummy-value' }),
-	maxRetries: 10, //default 3
+	maxAttempts: 10,
 })
 
 // debug output for sanity
@@ -104,7 +104,7 @@ export const feeder = async()=> {
 const approximateNumberOfMessages = async()=> +(await sqs.getQueueAttributes({
 	QueueUrl,
 	AttributeNames: ['ApproximateNumberOfMessages'],
-}).promise()).Attributes!.ApproximateNumberOfMessages
+})).Attributes!.ApproximateNumberOfMessages!
 
 
 const sendToSqs = async(records: TxRecord[])=>{
@@ -113,7 +113,7 @@ const sendToSqs = async(records: TxRecord[])=>{
 	let promisesBatch = []
 	const promisesBatchSize = 100 // 10 - 100 seems to be a sweet spot for performance
 	let inflights: InflightsRecord[] = []
-	let entries: SQS.SendMessageBatchRequestEntryList = []
+	let entries: SendMessageBatchRequestEntry[] = []
 	const messageBatchSize = 10 // max 10 messages for sqs.sendMessageBatch
 
 	console.log('promise batch size', promisesBatchSize)
@@ -162,7 +162,7 @@ const sendToSqs = async(records: TxRecord[])=>{
 	console.log('approximateNumberOfMessages', await approximateNumberOfMessages())
 }
 
-const processMessageBatch = async(inflights: InflightsRecord[], entries: SQS.SendMessageBatchRequestEntry[])=> {
+const processMessageBatch = async(inflights: InflightsRecord[], entries: SendMessageBatchRequestEntry[])=> {
 	let _inflights = inflights //careful with these refs
 	let _entries = entries
 
@@ -173,28 +173,29 @@ const processMessageBatch = async(inflights: InflightsRecord[], entries: SQS.Sen
 
 	/** filter out any not inserted and send */
 
-	_entries = _entries.filter(item => inflightIds.includes(item.Id))
+	_entries = _entries.filter(item => inflightIds.includes(item.Id!))
 
 	logger(prefix, `sending ${_entries.length} messages to sqs`, JSON.stringify(_entries.map(e => e.Id)))
 
 	const res = await sqs.sendMessageBatch({
 		QueueUrl,
 		Entries: _entries,
-	}).promise()
+	})
 
 	/** remove failed sendMessages from inflights */
 
-	const failCount = res.Failed.length
-	if(failCount > 0){
+	if(res.Failed){
+		const failCount = res.Failed?.length
 
 		/** informational */
-		const total = res.Successful.length + failCount
+		const successful = res.Successful?.length || 0
+		const total = successful + failCount
 		logger(prefix, `Failed to batch send ${failCount}/${total} messages:`)
 		for(const f of res.Failed){
 			logger(f.Id, `${f.Code} : ${f.Message}. ${f.SenderFault && 'SenderFault.'}`)
 		}
 
-		const failIds = res.Failed.map(f => f.Id)
+		const failIds = res.Failed.map(f => f.Id!)
 		await knex<InflightsRecord>('inflights').delete().whereIn('txid', failIds)
 	}
 }

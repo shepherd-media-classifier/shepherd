@@ -1,4 +1,4 @@
-import { fromBuffer, fromStream } from 'file-type' //16.5.4 for cjs
+import { fileTypeFromBuffer } from 'file-type' //16.5.4 for cjs
 import { Readable } from 'stream'
 import { FetchersStatus } from '../common/constants'
 import { dbWrongMimeType } from '../common/utils/db-update-txs'
@@ -7,7 +7,7 @@ import { s3Delete } from './s3Services'
 
 export const filetypeCheck = async(incoming: Readable, buffer: ArrayBuffer, txid: string, dbMime: string)=> {
 
-	const ft = await fromBuffer(buffer)
+	const ft = await fileTypeFromBuffer(buffer)
 
 	if(ft && ft.mime === 'application/xml' && dbMime === 'image/svg+xml'){
 		return true

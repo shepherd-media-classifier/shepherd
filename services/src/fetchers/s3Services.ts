@@ -1,4 +1,5 @@
-import * as AWS from 'aws-sdk'
+import { S3 } from '@aws-sdk/client-s3'
+import { Upload } from '@aws-sdk/lib-storage'
 import { Readable } from 'stream'
 import { FetchersStatus } from '../common/constants'
 import { dbCorruptDataConfirmed, dbMalformedXMLData } from '../common/utils/db-update-txs'
@@ -13,7 +14,7 @@ console.assert(process.env.AWS_SECRET_ACCESS_KEY, 'process.env.AWS_SECRET_ACCESS
 console.assert(process.env.AWS_INPUT_BUCKET, 'process.env.AWS_INPUT_BUCKET is undefined')
 
 
-const s3 = new AWS.S3({
+const s3 = new S3({
 	apiVersion: '2006-03-01',
 	...(process.env.S3_LOCAL==='yes' && {
 		endpoint: process.env.S3_LOCAL_ENDPOINT!,
@@ -46,17 +47,19 @@ export const s3UploadStream = async(readable: Readable, mimetype: string, txid: 
 		}
 	})
 
-	let uploader: AWS.S3.ManagedUpload
-	try{
-
-		uploader = s3.upload({
+	const uploader = new Upload({
+		client: s3,
+		params: {
 			Bucket: bucketName,
 			Key: txid,
 			ContentType: mimetype.replace(/\r|\n/g, ''),
 			Body: readable,
-		})
-		const data = await uploader.promise()
-		logger(prefix, 'uploaded buffer. Location', data.Location)
+		},
+	})
+	try{
+
+		const res = await uploader.done()
+		logger(prefix, `uploaded buffer ${txid}. ${res.$metadata.httpStatusCode}, attempts ${res.$metadata.attempts}.`)
 		return 'OK'
 
 	}catch(e){
@@ -101,10 +104,10 @@ export const s3UploadStream = async(readable: Readable, mimetype: string, txid: 
 
 export const s3Delete = async (txid: string) => {
 
-	await s3.deleteObject({
+	const res = await s3.deleteObject({
 		Bucket: bucketName,
 		Key: txid,
-	}).promise()
+	})
 
-	logger(s3Delete.name, `sent delete command for ${txid}`)
+	logger(s3Delete.name, `sent delete command for ${txid}. ${res.$metadata.httpStatusCode}, attempts ${res.$metadata.attempts}.`)
 }
