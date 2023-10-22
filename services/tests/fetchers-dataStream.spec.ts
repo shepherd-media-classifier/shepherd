@@ -1,14 +1,16 @@
-process.env['NODE_ENV'] = 'test'
 import { expect } from 'chai'
 import {  } from 'mocha'
-import { dataStream } from '../src/fetchers/fetchers'
 import sinon from 'sinon'
 import axios from 'axios'
 import { PassThrough } from 'stream'
-import * as DbUpdate from '../src/common/utils/db-update-txs'
-import * as S3Utils from '../src/fetchers/s3Services'
-import { FetchersStatus } from '../src/common/constants'
+import { IncomingMessage } from 'http'
 import { createReadStream } from 'fs'
+import { FetchersStatus } from '../src/common/constants'
+/* stubs become more complicated with esm */
+// import * as DbUpdate from '../src/common/utils/db-update-txs'
+import { dataStream } from '../src/fetchers/fetchers'
+import * as S3Utils from '../src/fetchers/s3Services'
+
 
 /* these are now being mocked, but the responses have been changing lately on the gateway (2022-05-24) */
 // some test datas
@@ -24,7 +26,8 @@ describe('fetchers `dataStream` tests', ()=>{
 	afterEach(()=> sinon.restore())
 
 	it('tests a good stream gets processed (using live txid)', (done)=> {
-		dataStream( goodTxid, 'image/png').then(ds=>{
+
+		dataStream( goodTxid, 'image/png').then( (ds:IncomingMessage)=>{
 			expect(ds).to.exist
 			ds.on('end',()=>{
 				done()
@@ -35,14 +38,14 @@ describe('fetchers `dataStream` tests', ()=>{
 	it('tests a NO_DATA stream gets processed', (done)=> {
 		const mockStream = new PassThrough()
 		//@ts-ignore
+		// eslint-disable-next-line @typescript-eslint/ban-types
 		mockStream.setTimeout = (t: number, cb: Function) => setTimeout(cb, 1000)
-		const fakeAxios = sinon.stub(axios, 'get').resolves({ 
+		const fakeAxios = sinon.stub(axios, 'get').resolves({
 			data: mockStream, headers: { 'content-length': 666 }
 		})
-		//quieten log noise
-		sinon.stub(DbUpdate, 'dbNoDataFound').resolves() //we're not testing db connectivity here.
 
-		dataStream( 'txid-no-data', 'image/fake').then(ds=>{
+
+		dataStream( 'txid-no-data', 'image/fake').then( (ds:IncomingMessage) => {
 			expect(ds).to.exist
 			expect(fakeAxios.called).true
 			ds.on('error', e =>{
@@ -54,33 +57,34 @@ describe('fetchers `dataStream` tests', ()=>{
 	}).timeout(0)
 
 	it('tests PARTIAL_DATA stream gets processed', (done)=> {
-		const mockStream = new PassThrough() 
+		const mockStream = new PassThrough()
 		//@ts-ignore
+		// eslint-disable-next-line @typescript-eslint/ban-types
 		mockStream.setTimeout = (t: number, cb: Function) => setTimeout(cb, 1000)
-		const fakeAxios = sinon.stub(axios, 'get').resolves({ 
+		const fakeAxios = sinon.stub(axios, 'get').resolves({
 			data: mockStream, headers: { 'content-length': 1024 }
 		})
-		mockStream.push('fake-partial-data890 12345678901234567890 12345678901234567890 1234567890') //73 bytes 
+		mockStream.push('fake-partial-data890 12345678901234567890 12345678901234567890 1234567890') //73 bytes
 		mockStream.push('fake-partial-data890 12345678901234567890 12345678901234567890 1234567890') //146 bytes
-		
+
 		dataStream( 'txid-partial-data', 'image/fake').then(ds =>{
 			expect(fakeAxios.called).true
 			ds.on('end', ()=> {
-				done() 
+				done()
 			})
 		})
 	}).timeout(0)
 
 	it('tests partial/aborted stream with NEGLIGIBLE_DATA message gets processed', (done)=> {
-		const mockStream = new PassThrough() 
+		const mockStream = new PassThrough()
 		//@ts-ignore
 		mockStream.setTimeout = (t: number, cb: Function) => setTimeout(cb, 1000)
-		const fakeAxios = sinon.stub(axios, 'get').resolves({ 
+		const fakeAxios = sinon.stub(axios, 'get').resolves({
 			data: mockStream, headers: { 'content-length': 1024 }
 		})
 		mockStream.push('not much data here')
 		const stubDbNegligible = sinon.stub(DbUpdate, 'dbNegligibleData').resolves()
-	
+
 		mockStream.on('error', e=> {
 			const NEGLIGIBLE_DATA: FetchersStatus = 'NEGLIGIBLE_DATA'
 			expect(e.message, 'e.message should be NEGLIGIBLE_DATA').eq(NEGLIGIBLE_DATA)
@@ -92,14 +96,14 @@ describe('fetchers `dataStream` tests', ()=>{
 		dataStream('txid-aborted-negligible-data', 'image/fake')
 
 	}).timeout(0)
- 	
+
 	it('tests NEGLIGIBLE_DATA stream gets processed', async()=> {
 		const rs = createReadStream(`${__dirname}/`+'./fixtures/negligible-size.data')
 		let setTimeoutCalled = false
 		//@ts-ignore
 		rs.setTimeout = (t: number, cb: Function) => setTimeout(()=>{setTimeoutCalled = true}, 10000)
-		
-		const fakeAxios = sinon.stub(axios, 'get').resolves({ 
+
+		const fakeAxios = sinon.stub(axios, 'get').resolves({
 			data: rs, headers: { 'content-length': 23 }
 		})
 		const stubDbNegligible = sinon.stub(DbUpdate, 'dbNegligibleData').resolves('OK')
