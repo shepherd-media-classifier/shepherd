@@ -6,8 +6,10 @@
   "scripts": {
     "migrate": "NODE_OPTIONS='--loader ts-node/esm' knex migrate:latest",
     "typecheck": "tsc --noEmit",
-    "test:grep": "NODE_ENV=test mocha tests/**/*.spec.ts --grep",
-    "test": "NODE_ENV=test mocha tests/**/*.spec.ts"
+    "test": "jest **/*.spec.ts",
+    "test:grep": "jest --verbose --testNamePattern",
+    "test-mocha:grep": "NODE_ENV=test mocha tests/**/*.spec.ts --grep",
+    "test-mocha": "NODE_ENV=test mocha tests/**/*.spec.ts"
   },
   "mocha": {
     "extension": [
