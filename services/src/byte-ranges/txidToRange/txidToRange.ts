@@ -1,4 +1,3 @@
-import axios, { AxiosError } from 'axios'
 import { CHUNK_ALIGN_GENESIS, CHUNK_SIZE, } from './constants-byteRange'
 import { HOST_URL } from '../../common/constants'
 import { ans104HeaderData } from './ans104HeaderData'
@@ -22,7 +21,7 @@ export interface ByteRange {
 	start: bigint
 	end: bigint
 }
-export const txidToRange = async (id: string, parent: string|null, parents: string[] | undefined) => {
+export const txidToRange = async (id: string, parent: string | null, parents: string[] | undefined) => {
 	/**
 	 * Overview:
 	 * determine if L1 or L2
@@ -85,11 +84,11 @@ export const txidToRange = async (id: string, parent: string|null, parents: stri
 }
 
 const offsetL1 = async (id: string): Promise<ByteRange> => {
-	const { data: { offset: end, size} } = await axiosRetryUnmemoized(`/tx/${id}/offset`, id)
+	const { offset: end, size } = await axiosRetryUnmemoized(`/tx/${id}/offset`, id)
 	const modEnd = (BigInt(end) - CHUNK_ALIGN_GENESIS) % CHUNK_SIZE
 	const addEnd = modEnd === 0n ? 0n : CHUNK_SIZE - modEnd
 
-	if(process.env['NODE_ENV'] === 'test') console.log({end, size, modEnd, addEnd})
+	if(process.env['NODE_ENV'] === 'test') console.log({ end, size, modEnd, addEnd })
 
 	return {
 		end: BigInt(end) + addEnd,
@@ -103,7 +102,7 @@ const byteRange104 = async (txid: string, parent: string, parents: string[] | un
 
 	const L1Parent = parents ? parents[parents.length - 1] : parent
 
-	const { data: { offset: strL1End , size: strL1Size} } = await axiosRetry(`/tx/${L1Parent}/offset`, txid)
+	const { offset: strL1End, size: strL1Size } = await axiosRetry(`/tx/${L1Parent}/offset`, txid)
 	const L1WeaveEnd = BigInt(strL1End)
 	const L1WeaveSize = BigInt(strL1Size)
 	const L1WeaveStart = L1WeaveEnd - L1WeaveSize
@@ -111,10 +110,10 @@ const byteRange104 = async (txid: string, parent: string, parents: string[] | un
 	/* 2. fetch the bundle index data */
 
 	const headerDatas: {
-    status: number
-    numDataItems: number
-    diIds: string[]
-    diSizes: number[]
+		status: number
+		numDataItems: number
+		diIds: string[]
+		diSizes: number[]
 		headerLength: bigint
 	}[] = []
 
@@ -149,7 +148,7 @@ const byteRange104 = async (txid: string, parent: string, parents: string[] | un
 		start += BigInt(header0.diSizes[i])
 	}
 
-	if(process.env.NODE_ENV ==='test') console.log('1st parent, start', start)
+	if(process.env.NODE_ENV === 'test') console.log('1st parent, start', start)
 
 	//loop through nested parents if they exist
 	if(parents){
@@ -159,13 +158,13 @@ const byteRange104 = async (txid: string, parent: string, parents: string[] | un
 			for(let j = 0; j < indexParent; j++){
 				start += BigInt(headerDatas[i].diSizes[j])
 			}
-			if(process.env.NODE_ENV ==='test') console.log(`parent[${i}]`, {start, indexParent})
+			if(process.env.NODE_ENV === 'test') console.log(`parent[${i}]`, { start, indexParent })
 		}
 	}
 
 	const size = BigInt(header0.diSizes[indexTxid])
 	const end = start + size
-	if(process.env.NODE_ENV ==='test') console.log('bundle relative', {start, end, size, indexTxid, parent, parents })
+	if(process.env.NODE_ENV === 'test') console.log('bundle relative', { start, end, size, indexTxid, parent, parents })
 
 	//unaligned dataItem range
 	const weaveStartUnaligned = start + L1WeaveStart
@@ -178,7 +177,7 @@ const byteRange104 = async (txid: string, parent: string, parents: string[] | un
 	modEnd = modEnd < 0n ? -modEnd : modEnd
 	const addEnd = modEnd === 0n ? 0n : CHUNK_SIZE - modEnd
 
-	if(process.env.NODE_ENV ==='test') console.log('weave actual', {startActual: weaveStartUnaligned, endActual: weaveEndUnaligned, L1WeaveStart}, 'mods', {modStart, modEnd, addEnd})
+	if(process.env.NODE_ENV === 'test') console.log('weave actual', { startActual: weaveStartUnaligned, endActual: weaveEndUnaligned, L1WeaveStart }, 'mods', { modStart, modEnd, addEnd })
 
 	let weaveStart = weaveStartUnaligned - modStart
 	let weaveEnd = weaveEndUnaligned + addEnd
@@ -203,7 +202,7 @@ const byteRange104 = async (txid: string, parent: string, parents: string[] | un
 	if(weaveEnd > (L1WeaveEnd + addEnd)) throw new Error('weaveEnd out of range') //not the cleanest test
 
 	/* final values */
-	if(process.env.NODE_ENV === 'test') console.info('return', {weaveStart, weaveEnd})
+	if(process.env.NODE_ENV === 'test') console.info('return', { weaveStart, weaveEnd })
 	return {
 		start: weaveStart,
 		end: weaveEnd,
@@ -214,29 +213,34 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 const axiosRetryUnmemoized = async (url: string, id: string) => {
 	while(true){
 		try{
-			return await axios.get(HOST_URL + url)
-		}catch(err:unknown){
-			const e = err as AxiosError & { statusCode?: number }
-			//no point retrying 404 errors?
-			const status = Number(e.response?.status) || Number(e.statusCode) || null
-			if(status === 404){
-				console.log (axiosRetryUnmemoized.name, `Error fetching byte-range data with '${HOST_URL + url}' Not retrying.`, e.name, e.message, '. child-id', id)
+			const res = await fetch(HOST_URL + url)
 
+			if(res.status === 404) throw new Error('404')
+			if(!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`)
+
+			return await res.json() as { offset: string, size: string }
+
+		}catch(err: unknown){
+			const e = err as Error
+			//no point retrying 404 errors?
+			if(e.message === '404'){
+				console.error(axiosRetryUnmemoized.name, `Error fetching byte-range data with '${HOST_URL + url}' Not retrying.`, e.name, e.message, '. child-id', id)
 				throw e
 			}
-			console.log (axiosRetryUnmemoized.name, `Error fetching byte-range data with '${HOST_URL + url}' Retrying in 10secs..`, e.name, e.message, id)
+			console.error(axiosRetryUnmemoized.name, `Error fetching byte-range data with '${HOST_URL + url}' Retrying in 10secs..`, e.name, e.message, id)
 			await sleep(10000)
 		}
 	}
 }
 const axiosRetry = moize(axiosRetryUnmemoized, { maxSize: 1000, isPromise: true })
+
 const gqlTxRetryUnmemoized = async (id: string, gql: ArGqlInterface) => {
 	while(true){
 		try{
 
 			return await gql.tx(id)
 
-		}catch(err:unknown){
+		}catch(err: unknown){
 			const e = err as Error & { cause?: number }
 			const status = e.cause ? +e.cause : null
 
