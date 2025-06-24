@@ -2,6 +2,7 @@ import * as cdk from 'aws-cdk-lib'
 import { Construct } from 'constructs'
 import { inputQMetricAndNotifications } from './lib/queue-notifications'
 import { createTailscaleSubrouter } from './lib/tailscale-ec2-router'
+import { createWafWebAcl } from './lib/waf-web-acl'
 import { Config } from '../Config'
 
 
@@ -69,6 +70,15 @@ export class InfraStack extends cdk.Stack {
 			logGroupName: 'shepherd-infra-logs',
 			retention: cdk.aws_logs.RetentionDays.ONE_MONTH,
 			removalPolicy: cdk.RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE,
+		})
+
+		/** create WAF Web ACL with IP allowlist */
+		const { wafWebAcl } = createWafWebAcl(stack, config, logGroupInfra)
+
+		/** attach WAF to ALB */
+		new cdk.aws_wafv2.CfnWebACLAssociation(stack, 'wafAlbAssociation', {
+			resourceArn: alb.loadBalancerArn,
+			webAclArn: wafWebAcl.attrArn,
 		})
 
 		/** create tailscale subrouter for the vpc */
@@ -164,6 +174,9 @@ export class InfraStack extends cdk.Stack {
 		writeParam('AlbDnsName', alb.loadBalancerDnsName)
 		writeParam('AlbArn', alb.loadBalancerArn)					// LB_ARN
 		writeParam('InputMetricProps', inputAgeMetricProps)	// object to re-create the metric
+		writeParam('WafWebAclArn', wafWebAcl.attrArn)
+		writeParam('TxidsWhitelist', config.txids_whitelist)
+		writeParam('RangesWhitelist', config.ranges_whitelist)
 
 	}
 }
