@@ -4,6 +4,7 @@ import pLimit, { LimitFunction } from 'p-limit'
 import { slackLog } from '../utils/slackLog'
 import { sqsClient } from '../utils/sqs-client'
 import {
+  ADDON_NAME,
   INPUT_QUEUE_URL,
   OUTPUT_QUEUE_URL,
   SINK_QUEUE_URL,
@@ -22,6 +23,9 @@ import { processVideo } from '../2-processing/process-video'
 import { processGif } from '../2-processing/process-gif'
 import { FatalS3AccessError, MissingObjectError, s3HeadObject } from './s3-read'
 import { ParsedS3QueueMessage, RetryableJobError, S3EventLike } from '../types'
+
+
+const prefix = `classifier-host (plugin=${ADDON_NAME})`
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
@@ -66,7 +70,7 @@ const processMessageWorker = async (
     parsed = parseMessage(message)
   } catch (error) {
     const receipt = message.ReceiptHandle
-    await slackLog('classifier-host', 'parseMessage', 'dropping malformed message', (error as Error).message)
+    await slackLog(prefix, 'parseMessage', 'dropping malformed message', (error as Error).message)
     if (receipt) {
       await ackMessage(receipt)
     }
@@ -141,7 +145,7 @@ const processMessageWorker = async (
       return
     }
 
-    await slackLog('[classifier-host]', txid, 'releasing message: worker error', (error as Error).name, (error as Error).message)
+    await slackLog(prefix, txid, 'releasing message: worker error', (error as Error).name, (error as Error).message)
     await releaseMessage(receiptHandle)
   } finally {
     stopHeartbeat()
@@ -159,6 +163,7 @@ export const startSqsConsumer = async (plugin: FilterPluginInterface): Promise<n
   }
 
   console.info('consumer start',
+    'plugin=' + ADDON_NAME,
     'input=' + queueShortName(INPUT_QUEUE_URL),
     'output=' + queueShortName(OUTPUT_QUEUE_URL),
     'sink=' + queueShortName(SINK_QUEUE_URL),
@@ -183,10 +188,10 @@ export const startSqsConsumer = async (plugin: FilterPluginInterface): Promise<n
       return
     }
     const detail = stalled.slice(0, STALL_LOG_LIMIT).join(' | ')
-    console.info('stalled', stalled.length, detail)
+    console.info('stalled', ADDON_NAME, stalled.length, detail)
     if (!alerted) {
       alerted = true
-      slackLog('classifier-host', `${stalled.length} stalled workers`, detail)
+      slackLog(prefix, `${stalled.length} stalled workers`, detail)
     }
   }, 15_000).unref()
 
@@ -231,11 +236,11 @@ export const startSqsConsumer = async (plugin: FilterPluginInterface): Promise<n
       }
     } catch (error) {
       if (error instanceof FatalS3AccessError) {
-        await slackLog('classifier-host', 'fatal', error.message)
+        await slackLog(prefix, 'fatal', error.message)
         throw error
       }
 
-      await slackLog('classifier-host', 'poll-error', (error as Error).name, (error as Error).message)
+      await slackLog(prefix, 'poll-error', (error as Error).name, (error as Error).message)
       await sleep(5000)
     }
   }
