@@ -49,7 +49,7 @@ const main = async () => {
 		records.push(rec)
 		txids.push(rec.txid)
 
-		let heights = []
+		let heights: number[] = []
 		if (++count % 100 === 0) {
 			const t0 = performance.now()
 
@@ -88,7 +88,7 @@ const main = async () => {
 	}
 	if (records.length > 0) {
 		console.log(`updating final ${records.length} records`)
-		let heights = []
+		let heights: number[] = []
 
 		let done = false
 		while (!done) {
@@ -150,11 +150,12 @@ const gqlHeights = async (txids: string[]) => {
 		txids,
 	}
 
-	const { data } = await axios.post(
-		'https://arweave.net/graphql',
-		JSON.stringify({ query, variables }),
-		{ headers: { 'content-type': 'application/json' } },
-	)
+	const { data } = await fetch(
+		'https://arweave.net/graphql', {
+		method: 'POST',
+		body: JSON.stringify({ query, variables }),
+		headers: { 'content-type': 'application/json' }
+	}).then(res => res.json())
 
 	const edges = data.data.transactions.edges
 	const heights = []
