@@ -3,7 +3,6 @@ import knexCreate from '../../../libs/utils/knexCreate'
 import { initLists } from '../../../libs/s3-lists/update-lists'
 import { ownerIngestLoop } from './owner-blocking/owner-ingest'
 import { tipLoop } from './index-by-height'
-import { ingestLoop } from './index-by-ingested_at'
 import { ownerChecks } from './owner-blocking'
 
 
@@ -53,7 +52,6 @@ while (true) {
 		ownerIngestLoop()
 		ownerChecks()
 		tipLoop({})
-		ingestLoop()
 
 		break;
 	} catch (err: unknown) {
