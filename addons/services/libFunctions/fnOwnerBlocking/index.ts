@@ -6,6 +6,7 @@ import { getByteRange } from '../../libs/byte-ranges/byteRanges'
 import { GQLEdgeInterface, GQLError } from 'ar-gql/dist/faces'
 import { gqlTx } from '../../libs/byte-ranges/gqlTx'
 import { updateS3Lists, UpdateItem } from '../../libs/s3-lists/update-lists'
+import { min_data_size } from '../../libs/constants'
 
 const gql = arGql({ endpointUrl: process.env.GQL_URL_SECONDARY, retries: 3 }) //defaults to goldsky
 const gqlBackup = arGql({ endpointUrl: process.env.GQL_URL, retries: 3 }) //defaults to arweave
@@ -35,7 +36,7 @@ export const handler = async (event: any) => {
 		await Promise.all(inputs.page.map(async ({ node }) => {
 
 			/** skip small files */
-			if (+node.data.size < 1_000) {
+			if (node.data.size !== null && +node.data.size < min_data_size) {
 				console.log(`file too small, size: ${node.data.size}, txid: ${node.id}`)
 				return;
 			}

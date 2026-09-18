@@ -21,7 +21,7 @@ export const ownerBlockingEvent = {
 					"id": "GMutRplWRUPN37PHAwia4UgoW0mJ_8GHdjJiX5octu0"
 				},
 				"data": {
-					"size": "3372"
+					"size": "33720"
 				},
 				"owner": {
 					"address": "KhPuM8Lvd4bVCFq6DgqGmng8vmEkSdlhQ8pAF-CMfUQ"
@@ -36,7 +36,7 @@ export const ownerBlockingEvent = {
 					"id": "GMutRplWRUPN37PHAwia4UgoW0mJ_8GHdjJiX5octu0"
 				},
 				"data": {
-					"size": "1501"
+					"size": "15010"
 				},
 				"owner": {
 					"address": "KhPuM8Lvd4bVCFq6DgqGmng8vmEkSdlhQ8pAF-CMfUQ"
