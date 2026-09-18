@@ -24,7 +24,7 @@ export const gatewayStream = async (
 	txid: string,
 	abortSignal: AbortSignal,
 	httpsGet = https.get, //dependency injection for testing
-): Promise<ReadableStream<Uint8Array>> => {
+): Promise<ReadableStream<Uint8Array> & { contentLength: number | null }> => {
 	//try raw endpoint first (no redirects)
 	try {
 		return await httpsStream(`${HOST_URL}/raw/${txid}`, httpsGet, abortSignal)
@@ -34,7 +34,7 @@ export const gatewayStream = async (
 	}
 }
 
-const httpsStream = (url: string, httpsGet: typeof https.get, abortSignal?: AbortSignal): Promise<ReadableStream<Uint8Array>> => {
+const httpsStream = (url: string, httpsGet: typeof https.get, abortSignal?: AbortSignal): Promise<ReadableStream<Uint8Array> & { contentLength: number | null }> => {
 	return new Promise((resolve, reject) => {
 		httpsGet(url, { agent, signal: abortSignal, headers: { 'User-Agent': 'shepherd/1.0' } }, (res) => {
 			//handle redirects
@@ -86,7 +86,8 @@ const httpsStream = (url: string, httpsGet: typeof https.get, abortSignal?: Abor
 				}
 			})
 
-			resolve(stream)
+			//content-length is absent on chunked responses, callers treat null as unknown
+			resolve(Object.assign(stream, { contentLength: res.headers['content-length'] ? Number(res.headers['content-length']) : null }))
 		}).on('error', reject)
 	})
 }

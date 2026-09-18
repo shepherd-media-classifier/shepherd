@@ -23,6 +23,7 @@ export const createMockHttpsGet = (config: MockConfig = {}) => {
 
 		const mockResponse = {
 			statusCode,
+			headers: {} as Record<string, string>,
 			setTimeout: (timeout: number, timeoutCallback: () => void) => {
 				if (shouldTimeout) {
 					setTimeout(timeoutCallback, timeoutDelay)
