@@ -10,6 +10,7 @@ import { OwnersListRecord } from '../../types'
 import plimit from 'p-limit'
 
 const limit = plimit(10) //concurrency limit
+const PAUSE_OWNER_BLOCKING = true
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
@@ -122,7 +123,7 @@ const blockOwnerHistory = async (owner: string, method: 'auto' | 'manual') => {
 		}
 
 		/** don't automatically block giant wallets! */
-		if (totalItems > 100_000) {
+		if (PAUSE_OWNER_BLOCKING || totalItems > 100_000) {
 			await slackLog(blockOwnerHistory.name, `🚫:warning: ${owner} has ${totalItems.toLocaleString()} items. NOT BLOCKING :warning:🚫`)
 			/** update owner_list status, 
 			 * so that owners are not added to addresses.txt and blockIngest doesn't break */
