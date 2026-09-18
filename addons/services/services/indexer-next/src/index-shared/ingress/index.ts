@@ -129,7 +129,7 @@ const getParent = moize(
 const metaToRecord = (item: GQLEdgeInterface) => ({
 	txid: item.node.id,
 	content_type: item.node.data.type || item.node.tags.find(t => t.name.toLowerCase() === 'content-type')!.value,
-	content_size: item.node.data.size.toString(),
+	content_size: item.node.data.size?.toString() ?? '-1', //null size is unknown, not zero
 	height: item.node.block.height, // missing height should not happen and cause `TypeError : Cannot read properties of null (reading 'height')`
 	parent: item.node.parent?.id || null, // the direct parent, if exists
 	owner: item.node.owner.address.padEnd(43, ' '), //pad non-arweave addresses to 43 chars
@@ -222,7 +222,8 @@ const filterMetas = async (metas: GQLEdgeInterface[], indexName: string, gqlProv
 			// keep only genuinely new, or existing with newer height and not already flagged
 			if (exist && !(exist.flagged !== true && m.node.block.height > exist.height)) continue
 
-			if (m.node.data.size <= min_data_size) {
+			const size = m.node.data.size as number | null //null size is unknown
+			if (size !== null && size <= min_data_size) {
 				negligible.push({
 					...metaToRecord(m),
 					parent: null, //negligible data is never fetched, so no parent chain is stored (matches prior behaviour)

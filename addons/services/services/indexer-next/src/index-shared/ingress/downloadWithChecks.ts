@@ -102,14 +102,14 @@ export const downloadWithChecks = async (
 			await Promise.all(pendingRecords.map(async (record) => {
 				try {
 					const head = await s3HeadObject(AWS_INPUT_BUCKET, record.txid)
-					if (Number(head.ContentLength) !== Number(record.content_size)) throw new Error(`content size mismatch: ${head.ContentLength} !== ${record.content_size}`)
+					if (Number(record.content_size) >= 0 && Number(head.ContentLength) !== Number(record.content_size)) throw new Error(`content size mismatch: ${head.ContentLength} !== ${record.content_size}`)
 					const metaid = JSON.parse(head.Metadata!.txrecord).txid
 					if (metaid !== record.txid) throw new Error(`txid mismatch: ${metaid} !== ${record.txid}`)
 
 					console.info(`${record.txid} found in S3 despite hanging promise`)
 					s3CheckResults.set(record.txid, {
 						queued: true,
-						record: { ...record, valid_data: true, last_update_date: new Date() }
+						record: { ...record, content_size: String(head.ContentLength), valid_data: true, last_update_date: new Date() }
 					})
 				} catch (e) {
 					console.error(`${record.txid} confirmed hanging - not fully found in S3.`, String(e))
@@ -170,7 +170,10 @@ export const processRecord = async (
 		console.debug(`${record.txid} getting input stream...`)
 		if (sourceStream === gatewayStream) {
 			console.debug(`${record.txid} calling gatewayStream`)
-			inputStream = await (sourceStream as typeof gatewayStream)(record.txid, abortSignal)
+			const res = await (sourceStream as typeof gatewayStream)(record.txid, abortSignal)
+			inputStream = res
+			//gql size unknown (-1): the gateway's content-length is the source of truth
+			if (Number(record.content_size) < 0 && res.contentLength) record = { ...record, content_size: res.contentLength.toString() }
 		} else {
 			console.debug(`${record.txid} calling chunkTxDataStream`)
 			const res = await (sourceStream as typeof chunkTxDataStream)(record.txid, record.parent || null, record.parents, abortSignal)
@@ -179,6 +182,8 @@ export const processRecord = async (
 				//stamp the byte-range discovered during download. it rides the queue pipeline in the
 				//s3 `txrecord` metadata, so sqsFinalHandler doesn't need to recompute it for flagged txs
 				record = { ...record, byte_start: res.byteRange.start.toString(), byte_end: res.byteRange.end.toString() }
+				//gql size unknown (-1): the discovered byte-range is the source of truth
+				if (Number(record.content_size) < 0) record = { ...record, content_size: res.byteRange.dataSize.toString() }
 			} else {
 				inputStream = res //mock sourceStreams in tests return a bare stream
 			}
@@ -292,7 +297,10 @@ export const processRecord = async (
 				const uploadedSize = Number(head.ContentLength)
 				const expectedSize = Number(record.content_size)
 
-				if (uploadedSize !== expectedSize) {
+				//gql size unknown (-1): nothing to verify against, the uploaded data is the source of truth
+				if (expectedSize < 0) {
+					record = { ...record, content_size: uploadedSize.toString() }
+				} else if (uploadedSize !== expectedSize) {
 					console.error(`${record.txid} size mismatch: uploaded ${uploadedSize}, expected ${expectedSize}`)
 					throw new Error(`Upload size verification failed: ${uploadedSize} !== ${expectedSize} bytes`)
 				}

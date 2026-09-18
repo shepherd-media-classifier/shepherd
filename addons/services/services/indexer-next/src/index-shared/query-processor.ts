@@ -121,7 +121,8 @@ export const gqlPages = async ({
 
 			/* separate out large files */
 			const { small, large } = edges.reduce((acc, edge) => {
-				+edge.node.data.size < LARGE_DATA_SIZE ? acc.small.push(edge) : acc.large.push(edge)
+				const size = edge.node.data.size as number | null; //null size is unknown, treat as large
+				(size !== null && size < LARGE_DATA_SIZE) ? acc.small.push(edge) : acc.large.push(edge)
 				return acc;
 			}, { small: [], large: [] } as { small: GQLEdgeInterface[], large: GQLEdgeInterface[] })
 
