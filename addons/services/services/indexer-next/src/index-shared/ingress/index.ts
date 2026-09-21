@@ -78,7 +78,7 @@ export const ingressHandler = async (inputs: Inputs) => {
 
 		//upsert updated records
 		console.debug(indexName, `starting database batch insert for ${updated.length} records`)
-		const numInserted = await batchUpsertTxsWithRules(updated.map(r => ({
+		const numInserted = (await batchUpsertTxsWithRules(updated.map(r => ({
 			//initial fields
 			txid: r.txid,
 			content_type: r.content_type,
@@ -94,7 +94,7 @@ export const ingressHandler = async (inputs: Inputs) => {
 			byte_start: r.byte_start ?? null, //present when the download discovered the byte-range (e.g. mimetype rejects)
 			byte_end: r.byte_end ?? null,
 			last_update_date: r.last_update_date || new Date(),
-		}) as TxRecord), 'txs') ?? 0
+		}) as TxRecord), 'txs'))?.length ?? 0
 
 		console.info(indexName, `page ${pageNumber}, ${metas.length} metas (${records.length} built), ${numQueued} queued in S3, ${numInserted}/${updated.length} inserts, ${errored.length} errored.`)
 
