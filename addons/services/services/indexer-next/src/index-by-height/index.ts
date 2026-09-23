@@ -30,27 +30,26 @@ export const tipLoop = async (
 	}
 	do {
 		const tip = await gqlHeight(GQL_URL)
-		if (pass1 < tip) {
-			await gqlQuery({ min: pass1 + 1, max: tip, indexName: 'indexer_pass1' })
-			pass1 = tip
-			await pool.query(`UPDATE states SET value = $1 WHERE pname = 'indexer_pass1'`, [pass1])
+		/* one block per query, state written after each: a failure only costs the block in flight */
+		while (pass1 < tip) {
+			await gqlQuery({ height: pass1 + 1, indexName: 'indexer_pass1' })
+			await pool.query(`UPDATE states SET value = $1 WHERE pname = 'indexer_pass1'`, [++pass1])
 		}
-		if (pass2 < tip - 4) {
-			await gqlQuery({ min: pass2 + 1, max: tip - 4, indexName: 'indexer_pass2' })
-			pass2 = tip - 4
-			await pool.query(`UPDATE states SET value = $1 WHERE pname = 'indexer_pass2'`, [pass2])
+		while (pass2 < tip - 4) {
+			await gqlQuery({ height: pass2 + 1, indexName: 'indexer_pass2' })
+			await pool.query(`UPDATE states SET value = $1 WHERE pname = 'indexer_pass2'`, [++pass2])
 		}
 		await sleep(30_000)
 	} while (loop)
 }
 
-const gqlQueryOrig = async ({ min, max, indexName }: { min: number, max: number, indexName: string }) => {
-	console.debug(indexName, 'querying blocks', { min, max })
-	const query = `query($cursor: String, $minBlock: Int, $maxBlock: Int) {
+const gqlQueryOrig = async ({ height, indexName }: { height: number, indexName: string }) => {
+	console.debug(indexName, 'querying block', height)
+	const query = `query($cursor: String, $height: Int) {
 		transactions(
 			block: {
-				min: $minBlock,
-				max: $maxBlock,
+				min: $height,
+				max: $height,
 			}
 			first: 100
 			after: $cursor
@@ -70,8 +69,7 @@ const gqlQueryOrig = async ({ min, max, indexName }: { min: number, max: number,
 		}
 	}`
 	const variables = {
-		minBlock: min,
-		maxBlock: max,
+		height,
 	}
 
 	//call generic handler
