@@ -211,11 +211,14 @@ export const processRecord = async (
 		const detectedMime = await detectMime(sample)
 		const recordMime = record.content_type
 
+		const recordMimeAllowed = recordMime.startsWith('image/') || recordMime.startsWith('video/') || recordMime.startsWith('audio/')
+
 		if (
 			detectedMime.startsWith('image')
 			|| detectedMime.startsWith('video')
 			|| detectedMime.startsWith('audio')
-			|| detectedMime.startsWith('application/octet-stream') //unknown mime allowed
+			|| (detectedMime.startsWith('application/octet-stream')
+				&& recordMimeAllowed)
 		) {
 			console.info(record.txid, `proceeding with stream, detectedMime: "${detectedMime}", recordMime: "${recordMime}"`)
 		} else {

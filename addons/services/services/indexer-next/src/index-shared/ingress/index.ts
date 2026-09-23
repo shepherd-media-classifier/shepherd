@@ -39,7 +39,7 @@ export const ingressHandler = async (inputs: Inputs) => {
 		 * while retrieving data (downloadWithChecks):
 		 * - use network nodes to retrieve data (make this modular so we can switch to gateway streams also)
 		 * - MIME sniffed by `file`/libmagic (256kb sample) starts with image/video/audio (sometimes detected as audio contains video)
-		 *   - generic/unknown MIMEs (octet-stream, x-empty) are allowed through; other specific non-media types are rejected
+		 *   - everything else is rejected, incl. unidentified octet-stream. gql no longer pre-filters content-type
 		 *   - [handle html/pdf/docs later]
 		 * - partial data allowed
 		 * - actual data > 4kb again
