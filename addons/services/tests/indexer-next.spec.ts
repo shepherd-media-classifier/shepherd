@@ -24,7 +24,7 @@ describe('indexer-next tests', {}, () => {
 			return heights.shift()!
 		})
 		const sleepMock = mock.fn(async () => { })
-		const gqlQueryMock = mock.fn(async (args: { min: number, max: number, indexName: string }) => { })
+		const gqlQueryMock = mock.fn(async (args: { height: number, indexName: string }) => { })
 
 		try {
 			await tipLoop({
@@ -37,14 +37,14 @@ describe('indexer-next tests', {}, () => {
 			if ((e as Error).message !== 'test finished') throw e
 		}
 
-		/** seeded to 100 - 4 - 30 = 66 */
+		/** seeded to 100 - 4 - 30 = 66. one call per block, catching up to each tip in turn */
 		assert.deepEqual(gqlQueryMock.mock.calls.map(c => c.arguments[0]), [
-			{ min: 67, max: 100, indexName: 'indexer_pass1' },
-			{ min: 67, max: 96, indexName: 'indexer_pass2' },
-			{ min: 101, max: 101, indexName: 'indexer_pass1' },
-			{ min: 97, max: 97, indexName: 'indexer_pass2' },
-			{ min: 102, max: 103, indexName: 'indexer_pass1' },
-			{ min: 98, max: 99, indexName: 'indexer_pass2' },
+			...Array.from({ length: 100 - 67 + 1 }, (_, i) => ({ height: 67 + i, indexName: 'indexer_pass1' })),
+			...Array.from({ length: 96 - 67 + 1 }, (_, i) => ({ height: 67 + i, indexName: 'indexer_pass2' })),
+			{ height: 101, indexName: 'indexer_pass1' },
+			{ height: 97, indexName: 'indexer_pass2' },
+			{ height: 102, indexName: 'indexer_pass1' }, { height: 103, indexName: 'indexer_pass1' },
+			{ height: 98, indexName: 'indexer_pass2' }, { height: 99, indexName: 'indexer_pass2' },
 		])
 		const rows = (await pool.query(`SELECT pname, value FROM states WHERE pname IN ('indexer_pass1', 'indexer_pass2') ORDER BY pname`)).rows
 		assert.deepEqual(rows, [{ pname: 'indexer_pass1', value: 103 }, { pname: 'indexer_pass2', value: 99 }])
