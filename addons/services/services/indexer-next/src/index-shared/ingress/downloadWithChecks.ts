@@ -259,8 +259,8 @@ export const processRecord = async (
 			},
 		})
 
-		//last update before upload
-		record = { ...record, valid_data: true, last_update_date: new Date() }
+		//last update before upload. detectedMime supersedes the gql placeholder, and rides the s3 txrecord metadata
+		record = { ...record, content_type: detectedMime, valid_data: true, last_update_date: new Date() }
 
 		//create and start S3 upload
 		console.debug(`${record.txid} creating S3 upload...`)

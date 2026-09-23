@@ -128,7 +128,7 @@ const getParent = moize(
  * walk. Shared by buildRecords (for big records) and the negligible path. */
 const metaToRecord = (item: GQLEdgeInterface) => ({
 	txid: item.node.id,
-	content_type: item.node.data.type || item.node.tags.find(t => t.name.toLowerCase() === 'content-type')!.value,
+	content_type: item.node.data.type || item.node.tags.find(t => t.name.toLowerCase() === 'content-type')?.value || 'application/octet-stream', //placeholder only: `file`/libmagic in downloadWithChecks is the source of truth
 	content_size: item.node.data.size?.toString() ?? '-1', //null size is unknown, not zero
 	height: item.node.block.height, // missing height should not happen and cause `TypeError : Cannot read properties of null (reading 'height')`
 	parent: item.node.parent?.id || null, // the direct parent, if exists

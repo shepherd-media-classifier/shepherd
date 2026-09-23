@@ -52,9 +52,6 @@ const gqlQueryOrig = async ({ min, max, indexName }: { min: number, max: number,
 				min: $minBlock,
 				max: $maxBlock,
 			}
-			tags: [
-				{ name: "Content-Type", values: ["image/*", "video/*"], match: WILDCARD }
-			]
 			first: 100
 			after: $cursor
 		) {
