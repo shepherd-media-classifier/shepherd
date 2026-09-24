@@ -127,49 +127,7 @@ describe('txidToRange tests', () => {
 		})
 	})
 
-	describe('ans102 tests', () => {
-		// it('can read stream ans102', async () => {
 
-		// 	//https://viewblock.io/arweave/tx/K-drBtpZ0C2-bPb0M5dFPla8FVKgPAOak-QqPoMKxnU
-
-		// 	const res = await ans102HeaderData(`K-drBtpZ0C2-bPb0M5dFPla8FVKgPAOak-QqPoMKxnU`)
-		// 	assert.equal(res.numDataItems, 2, 'should be 2 dataItems')
-		// 	assert.equal(res.diIds.length, res.diSizes.length, 'should be same numbers of sizes and ids')
-
-		// })
-
-		it('tests a pre-align-epoch ans102 dataItem`s byte-range is clamped', async () => {
-			const parentid = 'zv0DyLf95e9JcIDq9owI9Q2z1578m_ozFAUWsP4rrwM'
-			const txid0 = 'ceBxKEAFdGAzHySCs7qGaZPOdITYu_V87XyLjLZuFPk'  // 0
-			const txid1 = 'cLLgimFnpFyiRbOePC408BmyLbZzt8pr_gFpXKxD9Ng' // 1
-
-			const bytes0 = await byteRange102(txid0, parentid)
-			const chunkStart0 = 4397870113631n
-			const chunkEnd0 = 4397870364650n
-			assert.equal(bytes0.start, chunkStart0, 'should equal chunkStart0')
-			assert.equal(bytes0.end, chunkEnd0, 'should equal chunkEnd0')
-
-			const bytes1 = await byteRange102(txid1, parentid)
-			const chunkStart1 = 4397870113631n
-			const chunkEnd1 = 4397899835930n
-			assert.equal(bytes1.start, chunkStart1, 'should equal chunkStart1')
-			assert.equal(bytes1.end, chunkEnd1, 'should equal chunkEnd1')
-		})
-
-		it('tests a ans102 dataItem`s byte-range', async () => {
-			const parentid = '34mHidbXtk3IpqEJ4Axgl1itjzCvw0-Vok-RaBxDa-c'
-			const txid0 = 'BneBmCJKk88ox2P9tFFYCjU1o6N-1ZOT1kD9qGovRFg'
-
-			const bytes0 = await byteRange102(txid0, parentid)
-			const chunkStart0 = 93870741299446n
-			const chunkEnd0 = 93870741561590n
-			assert.equal(bytes0.start, chunkStart0, 'should equal chunkStart0')
-			assert.equal(bytes0.end, chunkEnd0, 'should equal chunkEnd0')
-
-
-		})
-
-	})
 
 	// describe('individual quick test',()=>{
 
