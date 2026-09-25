@@ -100,7 +100,8 @@ const byteRange104 = async (offset: bigint, size: bigint, headerLength: bigint):
 
 /** HyperBEAM gives the weave offset & sizes of L1s and ans104 dataItems (any nesting). null if not found */
 const hbRawHead = moize(async (id: string) => {
-	const url = `${HOST_URL}/~arweave@2.9/raw=${id}`
+	// method=HEAD: the CDN forwards HEAD upstream as a full GET (reads the whole item); this keeps HB on its head path
+	const url = `${HOST_URL}/~arweave@2.9/raw=${id}?method=HEAD`
 	console.info(hbRawHead.name, `unmemoized fetch('${url}')`)
 	// identity: a gzip-encoded response drops content-length
 	const res = await fetch(url, { method: 'HEAD', headers: { 'accept-encoding': 'identity' }, signal: AbortSignal.timeout(10_000) })
