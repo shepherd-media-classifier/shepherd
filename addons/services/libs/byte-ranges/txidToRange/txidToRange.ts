@@ -212,9 +212,11 @@ const chunkAt = moize(async (weaveOffset: bigint): Promise<{ absEnd: bigint, siz
 		const url = `${node.url}/chunk2/${(weaveOffset + 1n).toString()}` // /chunk2 is 1-based
 		let size = -1
 		let absEnd: string | undefined
-		const onSize = (s: number) => { size = s; ac.abort() } // got the header, stop reading the body
+		let response: { complete: boolean } | undefined
+		// got the header, stop reading the body. not if complete: aborting then errors the pooled keep-alive socket (uncaught)
+		const onSize = (s: number) => { size = s; if (!response?.complete) ac.abort() }
 		try {
-			await fetchChunkData('chunkAt', url, ac.signal, () => { }, onSize, (_, res) => { absEnd = res.headers['arweave-absolute-end-offset'] as string })
+			await fetchChunkData('chunkAt', url, ac.signal, () => { }, onSize, (_, res) => { response = res; absEnd = res.headers['arweave-absolute-end-offset'] as string })
 		} catch {
 			//aborting in onSize rejects with AbortError - expected once we have the size
 		}
