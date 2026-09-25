@@ -1,10 +1,5 @@
-import { CHUNK_ALIGN_GENESIS, CHUNK_SIZE, HOST_URL, GQL_URL_SECONDARY, GQL_URL } from './constants-byteRange'
-import { ans104HeaderData } from './ans104HeaderData'
-import { byteRange102 } from './byteRange102'
+import { CHUNK_ALIGN_GENESIS, CHUNK_SIZE, HOST_URL } from './constants-byteRange'
 import moize from 'moize'
-import { arGql, ArGqlInterface } from 'ar-gql'
-import { slackLog } from '../../utils/slackLog'
-import { gqlTx } from '../gqlTx'
 import { httpApiNodes } from '../../utils/update-range-nodes'
 import { fetchChunkData } from '../../chunkStreams/chunkFetch'
 import { ingressNodes } from '../../chunkStreams/ingress-nodes'
@@ -24,67 +19,34 @@ export interface ByteRange {
 	//export for data retrieval
 	dataStart: bigint
 	dataSize: bigint
+	headerLength?: bigint // 0n for L1
 }
+/** parent & parents are no longer used */
 export const txidToRange = async (id: string, parent: string | null, parents: string[] | undefined): Promise<ByteRange> => {
 	/**
 	 * Overview:
-	 * determine if L1 or L2
-	 * 	L1 call `/tx/{id}/offset`. end.
-	 * 	L2 check bundle ans102|ans104
-	 * 		ans104
-	 * 			stream bundle data via chunkTxDataStream (chunk nodes)
-	 * 			read enough header bytes, then abort the stream
-	 * 			get size & id arrays from bundle
-	 * 			determine byte ranges to blacklist
-	 * 		ans102 (these are rare)
-	 * 			get entire bundle and calculate byte-range
+	 * 	HB `raw=` HEAD gives the id's weave offset & size (header-length 0 => L1)
+	 * 	L1 (or HB failure, e.g. very large L1s) call `/tx/{id}/offset`. end.
+	 * 	L2 (ans104, any nesting) read the chunks holding the first & last bytes
 	 */
-
-	/* handle L1 */
-	if (parent === null) {
+	let hb: Awaited<ReturnType<typeof hbRawHead>>
+	try {
+		hb = await hbRawHead(id)
+	} catch (err: unknown) {
+		const e = err as Error
+		console.warn(txidToRange.name, `${e.name}:${e.message}. falling back to L1 offset for ${id}`)
+		return offsetL1(id)
+	}
+	if (!hb) return {
+		status: 404,
+		start: -1n, end: -1n,
+		dataStart: -1n, dataSize: -1n,
+	}
+	if (hb.headerLength === 0n) {
 		console.log(txidToRange.name, 'L1 detected', id)
 		return offsetL1(id)
 	}
-	//handle L2 ans104 (arbundles)
-
-	const gqlGold = arGql({ endpointUrl: GQL_URL_SECONDARY }) //defaults to goldsky
-
-	let txParent = await gqlTx(parent, gqlGold)
-	/** handle bugs in the gql indexing services */
-	if (!txParent) {
-		/** notify on missing parents */
-		console.error(txidToRange.name, `Parent ${parent} not found using ${GQL_URL_SECONDARY}. Trying ${GQL_URL} next. id: ${id}`)
-		const gqlArweave = arGql({ endpointUrl: GQL_URL }) //defaults to arweave
-		txParent = await gqlTx(parent, gqlArweave)
-		//fail fast
-		if (!txParent) {
-			slackLog(`Parent ${parent} not found using ${GQL_URL} or ${GQL_URL_SECONDARY}. id ${id}`) //overzealous? important not to miss this
-			throw new Error(`Parent ${parent} not found using ${GQL_URL} or ${GQL_URL_SECONDARY}. id ${id}`)
-		}
-	}
-
-	if (
-		txParent.tags.some(tag => tag.name.toLowerCase() === 'bundle-format' && tag.value === 'binary')
-		&& txParent.tags.some(tag => tag.name.toLowerCase() === 'bundle-version' && tag.value === '2.0.0')
-	) {
-		console.log(id, txidToRange.name, `ans104 detected. parent ${txParent.id}`)
-		return byteRange104(id, parent, parents)
-	}
-	//handle L2 ans102 (arweave-bundles)
-	if (
-		txParent.tags.some(tag => tag.name === 'Bundle-Format' && tag.value === 'json')
-		&& txParent.tags.some(tag => tag.name === 'Bundle-Version' && tag.value === '1.0.0')
-	) {
-		console.log(id, txidToRange.name, `ans102 detected. parent ${txParent.id}`)
-		return byteRange102(id, parent)
-	}
-
-	return {
-		start: -1n,
-		end: -1n,
-		dataStart: -1n,
-		dataSize: -1n,
-	}
+	return byteRange104(hb.offset, hb.size, hb.headerLength)
 }
 
 const offsetL1 = async (id: string): Promise<ByteRange> => {
@@ -99,170 +61,63 @@ const offsetL1 = async (id: string): Promise<ByteRange> => {
 		end: BigInt(end) + addEnd,
 		dataStart: 0n,
 		dataSize: BigInt(size),
+		headerLength: 0n,
 	}
 }
 
-const byteRange104 = async (txid: string, parent: string, parents: string[] | undefined): Promise<ByteRange> => {
+const byteRange104 = async (offset: bigint, size: bigint, headerLength: bigint): Promise<ByteRange> => {
 
-	/* 1. fetch the bundle offsets */
+	/* the chunks holding the dataItem's first & last bytes. a chunk may be smaller than its 256KB bucket (last 2 chunks of a tx) */
 
-	const L1Parent = parents ? parents[parents.length - 1] : parent
+	const first = await chunkAt(offset)
+	const last = offset + size <= first.absEnd ? first : await chunkAt(offset + size - 1n)
 
-	const { offset: strL1End, size: strL1Size } = await fetchRetryOffset(L1Parent)
-	const L1WeaveEnd = BigInt(strL1End)
-	const L1WeaveSize = BigInt(strL1Size)
-	const L1WeaveStart = L1WeaveEnd - L1WeaveSize
+	const chunkStart = first.absEnd - first.size
+	const dataStart = offset - chunkStart
+	let weaveStart = chunkStart
+	let weaveEnd = last.absEnd
 
-	/* 2. fetch the bundle index data */
-
-	const headerDatas: {
-		status: number
-		numDataItems: number
-		diIds: string[]
-		diSizes: number[]
-		headerLength: bigint
-	}[] = []
-
-
-	const header0 = await ans104HeaderData(
-		parent,
-		parents ? parents[0] : null,
-		parents && parents.length > 1 ? parents.slice(1) : undefined,
-	)
-	if (header0.status === 404) return {
-		status: header0.status,
-		start: -1n, end: -1n,
-		dataStart: -1n, dataSize: -1n,
-	}
-
-	if (parents) {
-		for (let i = 0; i < parents.length; i++) {
-			const header = await ans104HeaderData(
-				parents[i],
-				i + 1 < parents.length ? parents[i + 1] : null,
-				i + 2 < parents.length ? parents.slice(i + 2) : undefined,
-			)
-			if (header.status === 404) return {
-				status: header0.status,
-				start: -1n, end: -1n,
-				dataStart: -1n, dataSize: -1n,
-			}
-			headerDatas.push(header)
-		}
-	}
-
-	/* now we can calculate the byte ranges for a dataItem */
-
-	let start = 0n
-
-	//calculate start relative to first parent
-	start = header0.headerLength
-	const indexTxid = header0.diIds.indexOf(txid)
-	for (let i = 0; i < indexTxid; i++) {
-		start += BigInt(header0.diSizes[i])
-	}
-
-	if (process.env.NODE_ENV === 'test') console.log('1st parent, start', start)
-
-	//loop through nested parents if they exist
-	if (parents) {
-		for (let i = 0; i < headerDatas.length; i++) {
-			const indexParent = i == 0 ? headerDatas[i].diIds.indexOf(parent) : headerDatas[i].diIds.indexOf(parents[i - 1])
-
-			// add the data item header of the bundle at this nesting level
-			// = full size in grandparent bundle - (inner bundle header + sum of all inner items)
-			const innerHeader = i === 0 ? header0 : headerDatas[i - 1]
-			const innerBundleSize = innerHeader.headerLength + BigInt(innerHeader.diSizes.reduce((a, b) => a + b, 0))
-			start += BigInt(headerDatas[i].diSizes[indexParent]) - innerBundleSize
-
-			start += headerDatas[i].headerLength
-			for (let j = 0; j < indexParent; j++) {
-				start += BigInt(headerDatas[i].diSizes[j])
-			}
-			if (process.env.NODE_ENV === 'test') console.log(`parent[${i}]`, { start, indexParent })
-		}
-	}
-
-	const size = BigInt(header0.diSizes[indexTxid])
-	const end = start + size
-	if (process.env.NODE_ENV === 'test') console.log('bundle relative', { start, end, size, indexTxid, parent, parents })
-
-	//unaligned dataItem range
-	const weaveStartUnaligned = start + L1WeaveStart
-	const weaveEndUnaligned = end + L1WeaveStart
-	//aligned to chunks
-	let modStart = (weaveStartUnaligned - CHUNK_ALIGN_GENESIS) % CHUNK_SIZE
-	let modEnd = (weaveEndUnaligned - CHUNK_ALIGN_GENESIS) % CHUNK_SIZE
-	//ensure these are positive (hack)
-	modStart = modStart < 0n ? -modStart : modStart
-	modEnd = modEnd < 0n ? -modEnd : modEnd
-	const addEnd = modEnd === 0n ? 0n : CHUNK_SIZE - modEnd
-
-	if (process.env.NODE_ENV === 'test') console.log('weave actual', { startActual: weaveStartUnaligned, endActual: weaveEndUnaligned, L1WeaveStart }, 'mods', { modStart, modEnd, addEnd })
-
-	let weaveStart = weaveStartUnaligned - modStart
-	let weaveEnd = weaveEndUnaligned + addEnd
-	let dataStart = start - (weaveStart - L1WeaveStart)
-
-	/**
-	 * The last 2 chunks of a tx are split into arbitrary sizes by the uploader client (no fixed
-	 * rule), each padded out to its 256KB bucket. /chunk2 returns only the real data, not the
-	 * padding. The math above assumes every preceding chunk is a full CHUNK_SIZE, so for a
-	 * dataItem whose data starts within those last 2 chunks it over-skips by the second-last
-	 * chunk's padding. Correct it by reading the second-last chunk's real size from a node and
-	 * recomputing weaveStart (the item's bucket) and dataStart (skip into the real bytes).
-	 * Bundles always start on a chunk boundary, so L1WeaveStart is grid-aligned and the bucket
-	 * offsets below are too.
-	 */
-	// only relevant when the L1 spans >1 chunk and isn't a whole number of chunks (=> a split, padded tail)
-	const rebalanced = L1WeaveStart >= CHUNK_ALIGN_GENESIS && L1WeaveSize > CHUNK_SIZE && (L1WeaveSize % CHUNK_SIZE !== 0n)
-	const tailPrefix = (L1WeaveSize / CHUNK_SIZE - 1n) * CHUNK_SIZE // packed bundle offset where the 2nd-last chunk's real data begins
-	if (rebalanced && start >= tailPrefix) {
-		const secondLastSize = BigInt(await chunkSizeAt(L1WeaveStart + tailPrefix))
-		const lastDataStartPacked = tailPrefix + secondLastSize // packed bundle offset where the last chunk's real data begins
-		const inLastChunk = start >= lastDataStartPacked
-		const bucketPacked = inLastChunk ? tailPrefix + CHUNK_SIZE : tailPrefix
-		weaveStart = L1WeaveStart + bucketPacked
-		dataStart = start - (inLastChunk ? lastDataStartPacked : tailPrefix)
-		// cover the dataItem from this bucket; round up to a chunk boundary
-		const spanFromBucket = dataStart + size
-		const spanMod = spanFromBucket % CHUNK_SIZE
-		weaveEnd = weaveStart + spanFromBucket + (spanMod === 0n ? 0n : CHUNK_SIZE - spanMod)
-		if (process.env.NODE_ENV === 'test') console.info('rebalanced tail', { tailPrefix, secondLastSize, inLastChunk, weaveStart, dataStart, weaveEnd })
-	}
-
-	/* hack for older pre-aligned weave */
-
-	if (L1WeaveStart < CHUNK_ALIGN_GENESIS) {
-		console.info(`${txid}: ${L1WeaveStart} is less than CHUNK_ALIGN_GENESIS`)
-		//clamp the byte range to bundle limits
-		if (weaveStart < L1WeaveStart) weaveStart = L1WeaveStart
-		if (weaveEnd > L1WeaveEnd) weaveEnd = L1WeaveEnd
-		dataStart = start - (weaveStart - L1WeaveStart)
+	/* post-CHUNK_ALIGN_GENESIS: expand to the chunks' 256KB buckets */
+	if (chunkStart >= CHUNK_ALIGN_GENESIS) {
+		weaveStart = first.absEnd + (CHUNK_SIZE - (first.absEnd - CHUNK_ALIGN_GENESIS) % CHUNK_SIZE) % CHUNK_SIZE - CHUNK_SIZE
+		weaveEnd = last.absEnd + (CHUNK_SIZE - (last.absEnd - CHUNK_ALIGN_GENESIS) % CHUNK_SIZE) % CHUNK_SIZE
 	}
 
 	/* final sanity checks */
-	if (L1WeaveStart >= CHUNK_ALIGN_GENESIS) {
-		if ((weaveStart - CHUNK_ALIGN_GENESIS) % CHUNK_SIZE !== 0n) throw new Error('post-CHUNK_ALIGN_GENESIS weaveStart not on chunk alignment')
-		if ((weaveEnd - CHUNK_ALIGN_GENESIS) % CHUNK_SIZE !== 0n) throw new Error('post-CHUNK_ALIGN_GENESIS weaveEnd not on chunk alignment')
-	}
 	if (weaveStart > weaveEnd) throw new Error('weaveStart cannot be greater than weaveEnd')
-	if ((weaveEnd - weaveStart) < BigInt(header0.diSizes[indexTxid])) throw new Error('byte range too small to contain dataItem')
-	if (weaveStart < L1WeaveStart) throw new Error('weaveStart out of range')
-	// weaveEnd must not run past the grid-aligned end of the L1's last chunk (round L1WeaveEnd up to a chunk boundary)
-	const L1WeaveEndAligned = L1WeaveEnd + (CHUNK_SIZE - (L1WeaveEnd - CHUNK_ALIGN_GENESIS) % CHUNK_SIZE) % CHUNK_SIZE
-	if (weaveEnd > L1WeaveEndAligned) throw new Error('weaveEnd out of range')
+	if ((weaveEnd - weaveStart) < size) throw new Error('byte range too small to contain dataItem')
 	if (dataStart < 0n) throw new Error('dataStart out of range')
 
-	/* final values */
-	if (process.env.NODE_ENV === 'test') console.info('return', { weaveStart, weaveEnd, dataStart, size })
+	if (process.env.NODE_ENV === 'test') console.info('return', { offset, size, first, last, weaveStart, weaveEnd, dataStart })
 	return {
 		start: weaveStart,
 		end: weaveEnd,
 		dataStart,
 		dataSize: size,
+		headerLength,
 	}
 }
+
+/** HyperBEAM gives the weave offset & sizes of L1s and ans104 dataItems (any nesting). null if not found */
+const hbRawHead = moize(async (id: string) => {
+	const url = `${HOST_URL}/~arweave@2.9/raw=${id}`
+	console.info(hbRawHead.name, `unmemoized fetch('${url}')`)
+	// identity: a gzip-encoded response drops content-length
+	const res = await fetch(url, { method: 'HEAD', headers: { 'accept-encoding': 'identity' }, signal: AbortSignal.timeout(10_000) })
+	if (res.status === 404) return null
+	if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText} for ${url}`)
+
+	const offset = res.headers.get('offset')
+	const headerLength = res.headers.get('header-length')
+	const contentLength = res.headers.get('content-length')
+	if (!offset || !headerLength || !contentLength) throw new Error(`missing offset/header-length/content-length headers for ${url}`)
+
+	return {
+		offset: BigInt(offset),
+		size: BigInt(headerLength) + BigInt(contentLength),
+		headerLength: BigInt(headerLength),
+	}
+}, { maxSize: 1000, isPromise: true })
 
 /* yield node urls for the /offset lookup: fast ingress_nodes first (already
  * shuffled), then the slower http_api_nodes (random-spliced) */
@@ -342,28 +197,29 @@ const fetchRetryOffset = moize(async (id: string) => {
 }, { maxSize: 1000, isPromise: true })
 
 /**
- * Read the real (unpadded) size of the chunk at a given weave offset, via /chunk2.
+ * Read the real (unpadded) size and absolute end offset of the chunk holding a given weave offset, via /chunk2.
  * The last 2 chunks of a tx are split into arbitrary sizes by the uploader client, with
  * padding after the real data out to the 256KB boundary - and there is no formula for the
  * split, so we must ask a node. Reuses the /chunk2 fetch (`fetchChunkData`); the node sends
- * the whole chunk regardless, but we resolve from the 3-byte size header and abort the rest.
- * Memoized - tail chunks get re-requested for sibling dataItems in the same bundle.
+ * the whole chunk regardless, but we resolve from the `arweave-absolute-end-offset` response
+ * header and the 3-byte size header, then abort the rest.
  */
-const chunkSizeAt = moize(async (weaveOffset: bigint): Promise<number> => {
+const chunkAt = moize(async (weaveOffset: bigint): Promise<{ absEnd: bigint, size: bigint }> => {
 	const nodes = [...ingressNodes(), ...httpApiNodes()]
 	for (const node of nodes) {
 		const ac = new AbortController()
 		const url = `${node.url}/chunk2/${(weaveOffset + 1n).toString()}` // /chunk2 is 1-based
 		let size = -1
+		let absEnd: string | undefined
 		const onSize = (s: number) => { size = s; ac.abort() } // got the header, stop reading the body
 		try {
-			await fetchChunkData('chunkSizeAt', url, ac.signal, () => { }, onSize)
+			await fetchChunkData('chunkAt', url, ac.signal, () => { }, onSize, (_, res) => { absEnd = res.headers['arweave-absolute-end-offset'] as string })
 		} catch {
 			//aborting in onSize rejects with AbortError - expected once we have the size
 		}
-		if (size >= 0) return size
-		console.error(chunkSizeAt.name, `no size from '${url}'. Trying next node.`)
+		if (size >= 0 && absEnd) return { absEnd: BigInt(absEnd), size: BigInt(size) }
+		console.error(chunkAt.name, `no size/absolute-end-offset from '${url}'. Trying next node.`)
 	}
-	throw new Error(`${chunkSizeAt.name}: could not read chunk size at weaveOffset=${weaveOffset}`)
+	throw new Error(`${chunkAt.name}: could not read chunk at weaveOffset=${weaveOffset}`)
 }, { maxSize: 1000, isPromise: true })
 
