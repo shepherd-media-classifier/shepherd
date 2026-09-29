@@ -99,7 +99,7 @@ const blockOwnerHistory = async (owner: string, method: 'auto' | 'manual') => {
 	 * 1. infractions table should already exist
 	 * 2. create owner table
 	 * 3. gql all txids
-	 * 4. send pages to lambdas (getParents, calc ranges, build records, insert to owner table)
+	 * 4. send pages to lambdas (calc ranges, build records, insert to owner table)
 	 */
 
 	const totalItems = await ownerTotalCount(owner)

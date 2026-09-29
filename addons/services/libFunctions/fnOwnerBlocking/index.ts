@@ -1,15 +1,10 @@
 import pg, { batchInsertFnOwner, ownerToTablename } from './utils/pgClient'
 import { slackLog } from './utils/slackLog'
-import { arGql, ArGqlInterface, GQLUrls } from 'ar-gql'
 import { OwnerTableRecord } from '../../types'
 import { getByteRange } from '../../libs/byte-ranges/byteRanges'
-import { GQLEdgeInterface, GQLError } from 'ar-gql/dist/faces'
-import { gqlTx } from '../../libs/byte-ranges/gqlTx'
+import { GQLEdgeInterface } from 'ar-gql/dist/faces'
 import { updateS3Lists, UpdateItem } from '../../libs/s3-lists/update-lists'
 import { min_data_size } from '../../libs/constants'
-
-const gql = arGql({ endpointUrl: process.env.GQL_URL_SECONDARY, retries: 3 }) //defaults to goldsky
-const gqlBackup = arGql({ endpointUrl: process.env.GQL_URL, retries: 3 }) //defaults to arweave
 
 
 /** the handler will receive 1 page of blocked wallet results. 
@@ -44,28 +39,8 @@ export const handler = async (event: any) => {
 			/** build records */
 			const txid = node.id
 			const parent = node.parent?.id || null
-			let parents: string[] | undefined = []
+			const parents = undefined
 			const owner = node.owner.address.padEnd(43, ' ') //pad non-arweave addresses to 43
-
-			// loop to find all nested parents
-			if (parent) {
-				let p: string | null = parent
-				do {
-					const p0: string = p
-
-					try {
-						p = (await gqlTx(p0, gql)).parent?.id || null
-					} catch (eOuter: unknown) {
-						console.error(`getParent warning: "${(eOuter as Error).message}" while fetching parent: "${p}" for dataItem: ${txid} using gqlProvider: ${gql.endpointUrl}. Trying gqlBackup now.`)
-						try {
-							p = (await gqlTx(p0, gqlBackup)).parent?.id || null
-						} catch (eInner: unknown) {
-							slackLog(`getParent error: "${(eInner as Error).message}" while fetching parent: ${p0} for dataItem: ${txid} Tried both gql endpoints. ${(eInner as GQLError).cause.gqlError}`)
-						}
-					}
-				} while (p && parents.push(p))
-			}
-			parents = parents.length === 0 ? undefined : parents
 
 			/** calculate byte-range */
 			const range = await getByteRange(txid, parent, parents)
