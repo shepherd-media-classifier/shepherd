@@ -73,7 +73,6 @@ if (!ownerArg) {
 	process.exit(1)
 }
 
-const owner = ownerArg.padEnd(43, ' ')
 const gqlPrimary = process.env.GQL_URL_SECONDARY as string
 const gql = arGql({ endpointUrl: gqlPrimary, retries: 3 })
 
@@ -220,7 +219,7 @@ const main = async () => {
 
 		const listRes = await pool.query<OwnersListRecord>(
 			'SELECT owner, last_update, infractions, add_method FROM owners_list WHERE owner = $1',
-			[owner],
+			[ownerArg],
 		)
 		const ownersListRow = listRes.rows[0]
 		const { abort, summary } = interpretOwnersList(ownersListRow)
@@ -228,7 +227,7 @@ const main = async () => {
 
 		const wlRes = await pool.query(
 			'SELECT owner FROM owners_whitelist WHERE owner = $1',
-			[owner],
+			[ownerArg],
 		)
 		if (wlRes.rowCount && wlRes.rowCount > 0) {
 			console.info('owners_whitelist: yes (info only; does not change abort/proceed)')
