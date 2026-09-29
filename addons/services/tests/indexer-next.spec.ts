@@ -3,6 +3,7 @@ import { tipLoop } from '../services/indexer-next/src/index-by-height'
 import pool from '../libs/utils/pgClient'
 import assert from "node:assert/strict";
 import { after, before, describe, it, mock } from 'node:test'
+import { clearTimerHttpApiNodes } from '../libs/utils/update-range-nodes'
 
 
 describe('indexer-next tests', {}, () => {
@@ -15,6 +16,7 @@ describe('indexer-next tests', {}, () => {
 	after(async () => {
 		for (const { pname, value } of saved) await pool.query(`UPDATE states SET value = $1 WHERE pname = $2`, [value, pname])
 		await pool.end()
+		clearTimerHttpApiNodes()
 	})
 
 	it('should test the tipLoop function', async () => {

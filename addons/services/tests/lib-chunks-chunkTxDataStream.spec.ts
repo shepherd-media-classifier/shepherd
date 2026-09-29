@@ -65,6 +65,18 @@ describe('chunkTxDataStream', () => {
 		assert(',281936194216182\n' === textEnd, `Expected text content at end, got: "${textEnd}"`)
 	})
 
+	it('should stream a data-item from the last 2 chunks of its bundle, without parent', async () => {
+		const txid = 'AcvSNJGwVwp9MX_u8FMu4kUMhvKsY4wHbHQOVHIMrAw' //7424 bytes, image/png, last item in 45MQ...
+		const { stream } = await chunkTxDataStream(txid, null, undefined, (new AbortController()).signal)
+
+		const chunks: Uint8Array[] = []
+		for await (const buff of stream) chunks.push(buff)
+		const data = Buffer.concat(chunks)
+
+		assert.equal(data.length, 7424)
+		assert.equal(data.subarray(0, 8).toString('hex'), '89504e470d0a1a0a', 'expected PNG signature')
+	})
+
 	it('should handle data-item stream cancellation gracefully', async () => {
 		const { stream } = await chunkTxDataStream(diId, diParent, undefined, (new AbortController()).signal)
 

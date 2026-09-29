@@ -6,6 +6,7 @@ import { TxRecord } from 'shepherd-plugin-interfaces/types'
 import knexCreate from '../libs/utils/knexCreate';
 import { s3DeleteFolder } from '../libs/utils/s3-services';
 import { redis } from '../libs/utils/redis-state'
+import { clearTimerHttpApiNodes } from '../libs/utils/update-range-nodes'
 
 const knex = knexCreate()
 
@@ -41,6 +42,7 @@ describe('addonHandler', () => {
 		await knex.destroy()
 		await s3DeleteFolder(process.env.LISTS_BUCKET!, `${addonPrefix}/`)
 		await redis.quit().catch(console.error)
+		clearTimerHttpApiNodes()
 	})
 
 	it('should invalidate incorrect input', async () => {

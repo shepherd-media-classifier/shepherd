@@ -17,7 +17,7 @@ process.env.AWS_ENDPOINT_URL_SQS = 'http://127.0.0.1:9324'// #elasticmq'
 process.env.AWS_SQS_INPUT_QUEUE = 'http://127.0.0.1:9324/000000000000/shepherd2-input-q'
 process.env.REDIS_HOST = 'localhost'
 process.env.ingress_nodes = JSON.stringify(config.ingress_nodes)
-// process.env.http_api_nodes_url = config.http_api_nodes_url
+process.env.http_api_nodes_url = config.http_api_nodes_url
 
 
 // #used?
