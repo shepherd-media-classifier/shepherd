@@ -1,6 +1,7 @@
 import https from 'node:https'
 import { ReadableStream } from 'node:stream/web'
 import { min_data_size } from '../constants'
+import { waitForHost, pauseHost } from '../utils/rate-limit'
 
 
 
@@ -34,12 +35,21 @@ export const gatewayStream = async (
 	}
 }
 
-const httpsStream = (url: string, httpsGet: typeof https.get, abortSignal?: AbortSignal): Promise<ReadableStream<Uint8Array> & { contentLength: number | null }> => {
+const httpsStream = async (url: string, httpsGet: typeof https.get, abortSignal?: AbortSignal, attempt = 0): Promise<ReadableStream<Uint8Array> & { contentLength: number | null }> => {
+	await waitForHost(url, abortSignal)
 	return new Promise((resolve, reject) => {
 		httpsGet(url, { agent, signal: abortSignal, headers: { 'User-Agent': 'shepherd/1.0' } }, (res) => {
 			//handle redirects
 			if (res.statusCode && [301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location) {
 				return resolve(httpsStream(res.headers.location, httpsGet, abortSignal))
+			}
+
+			//429s pause every request to the host, then retry indefinitely
+			if (res.statusCode === 429) {
+				const wait = pauseHost(url, res.headers['retry-after'], attempt)
+				console.warn(`${url} 429. pausing all requests to ${new URL(url).host} for ${wait}s`)
+				res.resume() //discard the body
+				return resolve(httpsStream(url, httpsGet, abortSignal, attempt + 1))
 			}
 
 			if (res.statusCode !== 200) {

@@ -1,5 +1,6 @@
 import { CHUNK_ALIGN_GENESIS, CHUNK_SIZE, HOST_URL } from './constants-byteRange'
 import moize from 'moize'
+import { waitForHost, pauseHost } from '../../utils/rate-limit'
 import { httpApiNodes } from '../../utils/update-range-nodes'
 import { fetchChunkData } from '../../chunkStreams/chunkFetch'
 import { ingressNodes } from '../../chunkStreams/ingress-nodes'
@@ -103,8 +104,16 @@ const hbRawHead = moize(async (id: string) => {
 	// method=HEAD: the CDN forwards HEAD upstream as a full GET (reads the whole item); this keeps HB on its head path
 	const url = `${HOST_URL}/~arweave@2.9/raw=${id}?method=HEAD`
 	console.info(hbRawHead.name, `unmemoized fetch('${url}')`)
-	// identity: a gzip-encoded response drops content-length
-	const res = await fetch(url, { method: 'HEAD', headers: { 'accept-encoding': 'identity' }, signal: AbortSignal.timeout(10_000) })
+	// identity: a gzip-encoded response drops content-length. 429s pause every request to the host, then retry indefinitely
+	let res: Response
+	let attempt = 0
+	while (true) {
+		await waitForHost(url)
+		res = await fetch(url, { method: 'HEAD', headers: { 'accept-encoding': 'identity' }, signal: AbortSignal.timeout(10_000) })
+		if (res.status !== 429) break
+		const wait = pauseHost(url, res.headers.get('retry-after'), attempt++)
+		console.warn(hbRawHead.name, `429 for ${id}. pausing all requests to ${new URL(url).host} for ${wait}s`)
+	}
 	if (res.status === 404) return null
 	if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText} for ${url}`)
 
@@ -180,7 +189,15 @@ const fetchRetryOffset = moize(async (id: string) => {
 	console.info(fetchRetryOffset.name, `unmemoized fetch('${url}') fallback`)
 	let resFb: Response | undefined
 	try {
-		resFb = await fetch(url)
+		let attempt = 0
+		while (true) {
+			await waitForHost(url)
+			resFb = await fetch(url)
+			if (resFb.status !== 429) break
+			const wait = pauseHost(url, resFb.headers.get('retry-after'), attempt++)
+			console.warn(fetchRetryOffset.name, `429 for ${url}. pausing all requests to ${new URL(url).host} for ${wait}s`)
+			await resFb.body?.cancel()
+		}
 
 		if (!resFb.ok) throw new Error(`HTTP ${resFb.status} ${resFb.statusText}`)
 
