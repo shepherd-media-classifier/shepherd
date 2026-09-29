@@ -35,7 +35,7 @@ export const s3GetTag = async (objectKey: string, tagKey: string) => {
 const ownersFromDb = async () => {
 	/** addresses should be pretty small, otherwise we might use streams. order for hashing */
 	let { rows } = await pool.query(
-		`SELECT owners_list.owner FROM owners_list
+		`SELECT COALESCE(owners_list.owner_native, owners_list.owner) AS owner FROM owners_list
 			LEFT JOIN owners_whitelist ON owners_list.owner = owners_whitelist.owner
 			WHERE owners_whitelist IS NULL
 			AND (add_method = 'manual' OR add_method = 'blocked' OR add_method = 'future')
