@@ -102,7 +102,7 @@ const metaToRecord = (item: GQLEdgeInterface) => ({
 	content_size: item.node.data.size?.toString() ?? '-1', //null size is unknown, not zero
 	height: item.node.block.height, // missing height should not happen and cause `TypeError : Cannot read properties of null (reading 'height')`
 	parent: item.node.parent?.id || null, // the direct parent, if exists
-	owner: item.node.owner.address.padEnd(43, ' '), //pad non-arweave addresses to 43 chars
+	owner: item.node.owner.address,
 })
 
 /** exported for manual flagging tool */

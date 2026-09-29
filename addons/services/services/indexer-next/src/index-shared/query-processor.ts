@@ -1,4 +1,5 @@
 import pLimit from 'p-limit'
+import { createHash } from 'crypto'
 import { slackLog } from '../../../../libs/utils/slackLog'
 import { waitForHost, pauseHost } from '../../../../libs/utils/rate-limit'
 import { arGql } from 'ar-gql'
@@ -123,6 +124,13 @@ export const gqlPages = async ({
 
 			/* filter dupes from edges. batch insert does not like dupes */
 			edges = [...new Map(edges.map(edge => [edge.node.id, edge])).values()]
+
+			/* non-RSA owners come back native (base58/0x), canonicalise from owner.key */
+			for (const { node } of edges) {
+				if (node.owner.address.length === 43) continue
+				await waitForHost(gqlUrl)
+				node.owner.address = createHash('sha256').update(Buffer.from((await gql.tx(node.id)).owner.key, 'base64url')).digest('base64url')
+			}
 
 			/* store for our retries */
 			edges.forEach(edge => allEdges.set(edge.node.id, edge))
