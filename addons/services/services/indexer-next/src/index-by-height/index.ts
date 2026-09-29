@@ -5,11 +5,8 @@ const sleepOrig = (ms: number) => new Promise(resolve => setTimeout(resolve, ms)
 
 
 const GQL_URL = process.env.GQL_URL as string //ario by default
-const GQL_URL_SECONDARY = process.env.GQL_URL_SECONDARY as string //goldsky by default
 console.info(`GQL_URL: ${GQL_URL}`)
-console.info(`GQL_URL_SECONDARY : ${GQL_URL_SECONDARY}`)
 if (!GQL_URL) throw new Error('GQL_URL not set')
-if (!GQL_URL_SECONDARY) throw new Error('GQL_URL_SECONDARY not set')
 
 
 
@@ -78,7 +75,6 @@ const gqlQueryOrig = async ({ height, indexName }: { height: number, indexName: 
 		variables,
 		indexName,
 		gqlUrl: GQL_URL, //arweave.net
-		gqlUrlBackup: GQL_URL_SECONDARY, //goldsky.com
 		streamSourceName: 'nodes',
 	})
 }

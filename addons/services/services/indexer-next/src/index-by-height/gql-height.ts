@@ -1,3 +1,4 @@
+import { waitForHost, pauseHost } from '../../../../libs/utils/rate-limit'
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
@@ -6,7 +7,9 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
  * retry on all errors.
  * */
 export const gqlHeight = async (endpoint: string) => {
+	let attempt = 0
 	while(true){
+		await waitForHost(endpoint)
 		try{
 			const query = 'query($minBlock: Int){ blocks( height:{min:$minBlock} first:1 ){ edges{node{height}} }}'
 			const res = await fetch(endpoint, {
@@ -18,6 +21,12 @@ export const gqlHeight = async (endpoint: string) => {
 				body: JSON.stringify({ query })
 			})
 
+			//429s pause every request to the host, then retry indefinitely
+			if (res.status === 429) {
+				const wait = pauseHost(endpoint, res.headers.get('retry-after'), attempt++)
+				console.warn(`gql height 429. pausing all requests to ${new URL(endpoint).host} for ${wait}s`)
+				continue
+			}
 			if(!res.ok) throw Error(`${res.status} : ${res.statusText}`)
 
 			return +(await res.json()).data.blocks.edges[0].node.height

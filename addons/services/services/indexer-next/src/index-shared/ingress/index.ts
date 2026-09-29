@@ -1,7 +1,5 @@
 import { slackLog } from '../../../../../libs/utils/slackLog'
-import { arGql, ArGqlInterface } from 'ar-gql'
-import { GQLEdgeInterface, GQLError } from 'ar-gql/dist/faces'
-import moize from 'moize'
+import { GQLEdgeInterface } from 'ar-gql/dist/faces'
 import { TxRecord } from 'shepherd-plugin-interfaces/types'
 import pool, { batchUpsertTxsWithRules } from '../../../../../libs/utils/pgClient'
 import { min_data_size } from '../../../../../libs/constants'
@@ -10,16 +8,9 @@ import { chunkTxDataStream } from '../../../../../libs/chunkStreams/chunkTxDataS
 import { gatewayStream } from '../../../../../libs/chunkStreams/gatewayStream'
 
 
-const ARIO_DELAY_MS = 500
-
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
-
-
 interface Inputs {
 	metas: GQLEdgeInterface[]
 	pageNumber: string
-	gqlUrl: string
-	gqlUrlBackup: string
 	gqlProvider: string
 	indexName: string
 	streamSourceName: 'gateway' | 'nodes'
@@ -27,13 +18,13 @@ interface Inputs {
 }
 /** ingest 1 page (batch) of new items to index. */
 export const ingressHandler = async (inputs: Inputs) => {
-	const { metas, pageNumber, gqlUrl, gqlUrlBackup, gqlProvider, indexName, streamSourceName, downloadTimeout } = inputs
+	const { metas, pageNumber, gqlProvider, indexName, streamSourceName, downloadTimeout } = inputs
 	try {
 		console.info(indexName, `processing page ${pageNumber} of ${metas.length} records`)
 
 		/**
 		 * filter records:-
-		 * using metadata (in filterMetas, before the expensive buildRecords parent walk):
+		 * using metadata (in filterMetas):
 		 * - already in the database with the same/older height, or already flagged => discarded
 		 * - size <= 4k => marked negligible-data and stored as-is (no download)
 		 * while retrieving data (downloadWithChecks):
@@ -55,14 +46,8 @@ export const ingressHandler = async (inputs: Inputs) => {
 		const { negligible, toBuild } = await filterMetas(metas, indexName, gqlProvider)
 		updated.push(...negligible)
 
-		//only build (incl. the parent-chain walk) the records we'll actually download
-		const records = await buildRecords(
-			toBuild,
-			arGql({ endpointUrl: gqlUrl }),
-			indexName,
-			gqlProvider,
-			arGql({ endpointUrl: gqlUrlBackup })
-		)
+		//only build the records we'll actually download
+		const records = buildRecords(toBuild)
 
 		const streamSource = streamSourceName === 'gateway' ? gatewayStream : chunkTxDataStream
 		console.debug(indexName, `page ${pageNumber} starting downloadWithChecks for ${records.length}/${metas.length} records, source '${streamSourceName}', timeout ${downloadTimeout}ms. txids: ${records.map(r => r.txid).join(', ')}`)
@@ -110,22 +95,7 @@ export const ingressHandler = async (inputs: Inputs) => {
 	}
 }
 
-const getParent = moize(
-	async (p: string, gql: ArGqlInterface) => {
-		const res = await gql.tx(p)
-		return res.parent?.id || null
-	},
-	{
-		isPromise: true,
-		maxSize: 10_000, //allow for caching of maxSize number of bundles per query (1 block).
-		maxArgs: 1,
-		// onCacheHit: ()=>console.log(`getParent cache hit`),
-		// onCacheAdd: async(cache, options)=> console.log(cache.keys, cache.values),
-	},
-)
-
-/** map a raw GQL meta to the record fields we store, without the parent-chain
- * walk. Shared by buildRecords (for big records) and the negligible path. */
+/** map a raw GQL meta to the record fields we store. Shared by buildRecords (for big records) and the negligible path. */
 const metaToRecord = (item: GQLEdgeInterface) => ({
 	txid: item.node.id,
 	content_type: item.node.data.type || item.node.tags.find(t => t.name.toLowerCase() === 'content-type')?.value || 'application/octet-stream', //placeholder only: `file`/libmagic in downloadWithChecks is the source of truth
@@ -136,74 +106,13 @@ const metaToRecord = (item: GQLEdgeInterface) => ({
 })
 
 /** exported for manual flagging tool */
-export const buildRecords = async (metas: GQLEdgeInterface[], gql: ArGqlInterface, indexName: string, gqlProvider: string, gqlBackup: ArGqlInterface) => {
-
-	const records: TxRecord[] = []
-
-	for (const item of metas) {
-		const { txid, content_type, content_size, height, parent: directParent, owner } = metaToRecord(item)
-		let parent = directParent
-		const parents: string[] = []
-
-		// loop to find all nested parents
-		if (parent) {
-			let p: string | null = parent
-			do {
-				const t0 = performance.now()
-				const p0: string = p
-
-				try {
-					p = await getParent(p0, gql)
-				} catch (eOuter: unknown) {
-					const outerMessage = (eOuter as GQLError).message
-					await slackLog(`getParent error: "${outerMessage}" while fetching parent: "${p}" using: ${gqlProvider}, ${height}. Trying gqlBackup now.`)
-					try {
-						p = await getParent(p0, gqlBackup)
-					} catch (eInner: unknown) {
-						const gqlEInner = eInner as GQLError
-						throw new TypeError(`getParent error: "${gqlEInner.message}" while fetching parent: ${p0} for dataItem: ${txid} USING GQLBACKUP: ${gqlBackup.endpointUrl.includes('goldsky') ? 'gold' : 'ario'}. ${gqlEInner.cause.gqlError}`)
-					}
-				}
-
-				const t1 = performance.now() - t0
-
-				/* if time less than 10ms, it's definitely a cache hit */
-				if (t1 > 10) {
-					let logstring = `got parent ${p0} details in ${t1.toFixed(0)}ms.`
-
-					/* slow down, too hard to get out of arweave.net's rate-limit once it kicks in */
-					if (gql.endpointUrl.includes('arweave.net')) {
-						let timeout = ARIO_DELAY_MS - t1
-						if (timeout < 0) timeout = 0
-						logstring += ` pausing for ${timeout.toFixed(0)}ms.`
-						await sleep(timeout)
-					}
-					console.info(indexName, txid, logstring, gqlProvider)
-				}
-
-			} while (p && parents.push(p))
-		}
-
-		records.push({
-			txid,
-			content_type,
-			content_size,
-			height,
-			parent,
-			...(parents.length > 0 && { parents }), //leave `parents` null if not nested
-			owner,
-		} as TxRecord)
-	}
-
-	return records;
-}
+export const buildRecords = (metas: GQLEdgeInterface[]) => metas.map(item => metaToRecord(item) as TxRecord)
 
 /**
- * Filter raw GQL metas against the db *before* the expensive buildRecords
- * parent-chain walk:
+ * Filter raw GQL metas against the db *before* building records:
  * - discard metas already stored unchanged (existing & not newer height, or flagged)
  * - negligible survivors (<= min_data_size) are marked and returned for writing as-is
- *   (no download, and buildRecords' parent walk is irrelevant for them)
+ *   (no download)
  * - big survivors are returned as metas to build + download
  * Keys only on txid/height/size, all present in the raw meta.
  */

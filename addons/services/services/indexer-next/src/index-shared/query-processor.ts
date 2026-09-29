@@ -1,5 +1,6 @@
 import pLimit from 'p-limit'
 import { slackLog } from '../../../../libs/utils/slackLog'
+import { waitForHost, pauseHost } from '../../../../libs/utils/rate-limit'
 import { arGql } from 'ar-gql'
 import GQLResultInterface, { GQLError, GQLEdgeInterface } from 'ar-gql/dist/faces'
 import { ingressHandler } from './ingress/index'
@@ -37,14 +38,12 @@ export const gqlPages = async ({
 	variables,
 	indexName,
 	gqlUrl,
-	gqlUrlBackup,
 	streamSourceName = 'gateway',// 'nodes',
 }: {
 	query: string
 	variables: Record<string, any>,
 	indexName: string,
 	gqlUrl: string,
-	gqlUrlBackup: string,
 	streamSourceName?: 'gateway' | 'nodes',
 }) => {
 
@@ -64,7 +63,9 @@ export const gqlPages = async ({
 		const p0 = performance.now()
 
 		let edges, res!: GQLResultInterface
+		let attempt = 0
 		while (true) {
+			await waitForHost(gqlUrl)
 			try {
 				res = await gql.run(query, {
 					...variables,
@@ -96,7 +97,14 @@ export const gqlPages = async ({
 					continue
 				}
 
-				const ms = (Number(status) === 429) ? 30_000 : 10_000
+				/** 429s pause every request to the host, then retry indefinitely */
+				if (Number(status) === 429) {
+					const wait = pauseHost(gqlUrl, e.cause?.headers?.get('retry-after'), attempt++)
+					console.warn(indexName, `gql 429. pausing all requests to ${new URL(gqlUrl).host} for ${wait}s`, gqlProvider)
+					continue
+				}
+
+				const ms = 10_000
 
 				/** in all other cases sleep before retrying */
 				let cause = 'unprintable?'
@@ -137,8 +145,6 @@ export const gqlPages = async ({
 					small,
 					pageCount.toString(),
 					streamSourceName,
-					gqlUrl,
-					gqlUrlBackup,
 					gqlProvider,
 					indexName,
 					ingestPromises,
@@ -152,8 +158,6 @@ export const gqlPages = async ({
 					large,
 					pageCount.toString(),
 					streamSourceName,
-					gqlUrl,
-					gqlUrlBackup,
 					gqlProvider,
 					indexName,
 					ingestPromises,
@@ -208,8 +212,6 @@ export const gqlPages = async ({
 			toRetry,
 			'retries',
 			'gateway', //
-			gqlUrl,
-			gqlUrlBackup,
 			gqlProvider,
 			indexName,
 			ingestPromisesRetries,
@@ -263,8 +265,6 @@ const batchAndDispatchEdges = (
 	edges: GQLEdgeInterface[],
 	pageNumber: string,
 	streamSourceName: 'gateway' | 'nodes',
-	gqlUrl: string,
-	gqlUrlBackup: string,
 	gqlProvider: string,
 	indexName: string,
 	promises: Promise<IngestResult>[],
@@ -281,8 +281,6 @@ const batchAndDispatchEdges = (
 			const processed = await ingressHandler({
 				metas: batch,
 				pageNumber: batchPage,
-				gqlUrl,
-				gqlUrlBackup,
 				gqlProvider,
 				indexName,
 				streamSourceName,
