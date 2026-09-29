@@ -14,21 +14,14 @@ const PAUSE_OWNER_BLOCKING = true
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
-if (!process.env.GQL_URL_SECONDARY) throw new Error('missing env var: GQL_URL_SECONDARY')
 if (!process.env.GQL_URL) throw new Error('missing env var: GQL_URL')
 
-const gql = arGql({ endpointUrl: process.env.GQL_URL_SECONDARY, retries: 3 }) //defaults to goldsky
-const gqlBackup = arGql({ endpointUrl: process.env.GQL_URL, retries: 3 }) //defaults to arweave
+export const gql = arGql({ endpointUrl: process.env.GQL_URL, retries: 3 }) //defaults to arweave
 const query = `
 query($cursor: String, $owners: [String!]) {
   transactions(
     # your query parameters
     owners: $owners
-    tags: [
-      {name:"Bundle-Version", op:NEQ},
-      {name: "type", values: "redstone-oracles", op: NEQ},
-    ]
-
 		#remove pending results
 		sort: HEIGHT_DESC
     
@@ -46,6 +39,7 @@ query($cursor: String, $owners: [String!]) {
         parent{id}
         data{size}
 				owner{address}
+				tags{name value}
       }
     }
   }
@@ -102,7 +96,9 @@ const blockOwnerHistory = async (owner: string, method: 'auto' | 'manual') => {
 	 * 4. send pages to lambdas (calc ranges, build records, insert to owner table)
 	 */
 
-	const totalItems = await ownerTotalCount(owner)
+	/** arweave.net `owners:` only matches native addresses for non-RSA signers */
+	const ownerNative: string = (await pool.query(`SELECT COALESCE(owner_native, owner) AS owner FROM owners_list WHERE owner = $1`, [owner])).rows[0].owner
+	const totalItems = await ownerTotalCount(ownerNative)
 
 	/** check owner blocking not currently in progess or done */
 	//TODO: use the param store for state instead of the db
@@ -147,7 +143,7 @@ const blockOwnerHistory = async (owner: string, method: 'auto' | 'manual') => {
 	let hasNextPage = true
 	let cursor = ''
 	const variables = {
-		owners: [owner.trim()],
+		owners: [ownerNative.trim()],
 	}
 	const counts = { page: 0, items: 0, inserts: 0 }
 

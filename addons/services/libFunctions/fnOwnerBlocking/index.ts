@@ -36,11 +36,15 @@ export const handler = async (event: any) => {
 				return;
 			}
 
+			/** skip bundles & redstone-oracles. arweave.net 400s on tag `op: NEQ` so no gql filter */
+			if (node.tags.some(t => t.name.toLowerCase() === 'bundle-version' || (t.name.toLowerCase() === 'type' && t.value === 'redstone-oracles'))) return;
+
 			/** build records */
 			const txid = node.id
 			const parent = node.parent?.id || null
 			const parents = undefined
-			const owner = node.owner.address.padEnd(43, ' ') //pad non-arweave addresses to 43
+			let owner = node.owner.address
+			if (owner.length !== 43) owner = (await pg.query(`SELECT owner FROM owners_list WHERE owner_native = $1`, [owner])).rows[0].owner
 
 			/** calculate byte-range */
 			const range = await getByteRange(txid, parent, parents)
