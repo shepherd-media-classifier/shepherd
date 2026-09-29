@@ -44,12 +44,8 @@ const BATCH_SIZE = 50          // matches CHUNKS_BATCH_SIZE for the 'nodes' sour
 const DOWNLOAD_TIMEOUT = 90_000
 const SAMPLE_INTERVAL_MS = 1_000
 
-/** goldsky is the real primary gql now (the legacy `gql_url`/GQL_URL = arweave.net
- * is commented out in config.dev, so it resolves undefined — which made getParent
- * fail the primary lookup every time and limp on the backup). goldsky lives in the
- * legacy-named GQL_URL_SECONDARY. so: primary = goldsky, fallback = arweave.net. */
+/** goldsky lives in the legacy-named GQL_URL_SECONDARY */
 const GQL_PRIMARY = process.env.GQL_URL_SECONDARY || 'https://arweave-search.goldsky.com/graphql'
-const GQL_FALLBACK = process.env.GQL_URL || 'https://arweave.net/graphql'
 if (!GQL_PRIMARY) throw new Error('no gql endpoint resolved (check config.dev gql_url_secondary)')
 
 /** load up to MAX_PAGES of fixtures into one flat list of edges */
@@ -173,8 +169,6 @@ const main = async () => {
 				const res = await ingressHandler({
 					metas: batch,
 					pageNumber: `perf-${i}`,
-					gqlUrl: GQL_PRIMARY,
-					gqlUrlBackup: GQL_FALLBACK,
 					gqlProvider: GQL_PRIMARY.includes('goldsky') ? 'goldsky.com' : 'arweave.net',
 					indexName: 'perf-test',
 					streamSourceName: 'nodes',

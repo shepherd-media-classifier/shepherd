@@ -75,9 +75,7 @@ if (!ownerArg) {
 
 const owner = ownerArg.padEnd(43, ' ')
 const gqlPrimary = process.env.GQL_URL_SECONDARY as string
-const gqlFallback = process.env.GQL_URL as string
 const gql = arGql({ endpointUrl: gqlPrimary, retries: 3 })
-const gqlBackup = arGql({ endpointUrl: gqlFallback, retries: 3 })
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
@@ -286,9 +284,7 @@ const main = async () => {
 				const pageCandidates = page.candidates
 				const builtPageNumber = pageNumber
 				inflightBuilds.push(buildLimit(async () => {
-					const records = await retryUntil(`build page ${builtPageNumber}`, () =>
-						buildRecords(pageCandidates, gql, 'classify-owner', 'goldsky', gqlBackup),
-					)
+					const records = buildRecords(pageCandidates)
 					totals.built += records.length
 					console.info(
 						`built page ${builtPageNumber}: records=${records.length} | totals built=${totals.built}`,
