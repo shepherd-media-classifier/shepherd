@@ -10,7 +10,8 @@ export const ownerBlockingEvent = {
 				},
 				"owner": {
 					"address": "8b9-nOe9l1ZNTe57Gbqa_QKeW9l0pCILc9w0kdkmvN4"
-				}
+				},
+				"tags": []
 			}
 		},
 		{
@@ -25,7 +26,8 @@ export const ownerBlockingEvent = {
 				},
 				"owner": {
 					"address": "KhPuM8Lvd4bVCFq6DgqGmng8vmEkSdlhQ8pAF-CMfUQ"
-				}
+				},
+				"tags": []
 			}
 		},
 		{
@@ -40,7 +42,8 @@ export const ownerBlockingEvent = {
 				},
 				"owner": {
 					"address": "KhPuM8Lvd4bVCFq6DgqGmng8vmEkSdlhQ8pAF-CMfUQ"
-				}
+				},
+				"tags": []
 			}
 		}
 	],
