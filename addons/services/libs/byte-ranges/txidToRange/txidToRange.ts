@@ -27,16 +27,24 @@ export const txidToRange = async (id: string, parent: string | null, parents: st
 	/**
 	 * Overview:
 	 * 	HB `raw=` HEAD gives the id's weave offset & size (header-length 0 => L1)
-	 * 	L1 (or HB failure, e.g. very large L1s) call `/tx/{id}/offset`. end.
+	 * 	L1 (or HB failure with `/tx/{id}/offset` available, e.g. very large L1s) call `/tx/{id}/offset`. end.
 	 * 	L2 (ans104, any nesting) read the chunks holding the first & last bytes
 	 */
 	let hb: Awaited<ReturnType<typeof hbRawHead>>
-	try {
-		hb = await hbRawHead(id)
-	} catch (err: unknown) {
-		const e = err as Error
-		console.warn(txidToRange.name, `${e.name}:${e.message}. falling back to L1 offset for ${id}`)
-		return offsetL1(id)
+	for (let attempt = 1; ; attempt++) {
+		try {
+			hb = await hbRawHead(id)
+			break
+		} catch (err: unknown) {
+			/** a raw= failure says nothing about L1 vs L2: only take the L1 path if the gateway has /offset for the id (404 if not), else retry raw= */
+			const e = err as Error
+			const url = `${HOST_URL}/tx/${id}/offset`
+			await waitForHost(url)
+			const isL1 = await fetch(url, { signal: AbortSignal.timeout(10_000) }).then(r => { r.body?.cancel(); return r.ok }, () => false)
+			if (isL1) return offsetL1(id)
+			if (attempt === 3) throw e
+			console.warn(txidToRange.name, `${e.name}:${e.message}. no L1 offset for ${id}, retrying raw= (${attempt}/3)`)
+		}
 	}
 	if (!hb) return {
 		status: 404,
