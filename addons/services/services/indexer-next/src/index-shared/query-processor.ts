@@ -17,6 +17,7 @@ const CHUNKS_BATCH_SIZE = 50
 const SHORT_DOWNLOAD_TIMEOUT = 90_000 //ms
 const LONG_DOWNLOAD_TIMEOUT = 14 * 60_000 //14 mins
 const LARGE_DATA_SIZE = 500 * 1024 * 1024 //500MB
+const canonicalOwners = new Map<string, string>() //native (base58/0x) => canonical owner, fixed per wallet
 
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
@@ -105,6 +106,13 @@ export const gqlPages = async ({
 					continue
 				}
 
+				/** HB refuses blocks it hasn't fully indexed: skip. pass2 (tip-20) retries pass1's skips, pass2's are lost */
+				if (e.cause?.gqlError?.includes('is not fully indexed') && ingestPromises.length === 0) {
+					if (indexName === 'indexer_pass2') await slackLog(indexName, 'skipped, block not fully indexed', JSON.stringify(variables), gqlProvider)
+					else console.warn(indexName, 'skipped, block not fully indexed', JSON.stringify(variables), gqlProvider)
+					return
+				}
+
 				const ms = 10_000
 
 				/** in all other cases sleep before retrying */
@@ -127,9 +135,13 @@ export const gqlPages = async ({
 
 			/* non-RSA owners come back native (base58/0x), canonicalise from owner.key */
 			for (const { node } of edges) {
-				if (node.owner.address.length === 43) continue
-				await waitForHost(gqlUrl)
-				node.owner.address = createHash('sha256').update(Buffer.from((await gql.tx(node.id)).owner.key, 'base64url')).digest('base64url')
+				const native = node.owner.address
+				if (native.length === 43) continue
+				if (!canonicalOwners.has(native)) {
+					await waitForHost(gqlUrl)
+					canonicalOwners.set(native, createHash('sha256').update(Buffer.from((await gql.tx(node.id)).owner.key, 'base64url')).digest('base64url'))
+				}
+				node.owner.address = canonicalOwners.get(native)!
 			}
 
 			/* store for our retries */
