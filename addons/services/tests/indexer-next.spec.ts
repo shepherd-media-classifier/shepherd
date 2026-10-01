@@ -42,14 +42,14 @@ describe('indexer-next tests', {}, () => {
 		/** seeded to 100 - 4 - 30 = 66. one call per block, catching up to each tip in turn */
 		assert.deepEqual(gqlQueryMock.mock.calls.map(c => c.arguments[0]), [
 			...Array.from({ length: 100 - 67 + 1 }, (_, i) => ({ height: 67 + i, indexName: 'indexer_pass1' })),
-			...Array.from({ length: 96 - 67 + 1 }, (_, i) => ({ height: 67 + i, indexName: 'indexer_pass2' })),
+			...Array.from({ length: 80 - 67 + 1 }, (_, i) => ({ height: 67 + i, indexName: 'indexer_pass2' })),
 			{ height: 101, indexName: 'indexer_pass1' },
-			{ height: 97, indexName: 'indexer_pass2' },
+			{ height: 81, indexName: 'indexer_pass2' },
 			{ height: 102, indexName: 'indexer_pass1' }, { height: 103, indexName: 'indexer_pass1' },
-			{ height: 98, indexName: 'indexer_pass2' }, { height: 99, indexName: 'indexer_pass2' },
+			{ height: 82, indexName: 'indexer_pass2' }, { height: 83, indexName: 'indexer_pass2' },
 		])
 		const rows = (await pool.query(`SELECT pname, value FROM states WHERE pname IN ('indexer_pass1', 'indexer_pass2') ORDER BY pname`)).rows
-		assert.deepEqual(rows, [{ pname: 'indexer_pass1', value: 103 }, { pname: 'indexer_pass2', value: 99 }])
+		assert.deepEqual(rows, [{ pname: 'indexer_pass1', value: 103 }, { pname: 'indexer_pass2', value: 83 }])
 	})
 
 })
