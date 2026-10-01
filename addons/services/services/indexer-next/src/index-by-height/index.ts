@@ -32,7 +32,7 @@ export const tipLoop = async (
 			await gqlQuery({ height: pass1 + 1, indexName: 'indexer_pass1' })
 			await pool.query(`UPDATE states SET value = $1 WHERE pname = 'indexer_pass1'`, [++pass1])
 		}
-		while (pass2 < tip - 4) {
+		while (pass2 < tip - 20) {
 			await gqlQuery({ height: pass2 + 1, indexName: 'indexer_pass2' })
 			await pool.query(`UPDATE states SET value = $1 WHERE pname = 'indexer_pass2'`, [++pass2])
 		}
