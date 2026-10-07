@@ -100,7 +100,7 @@ const metaToRecord = (item: GQLEdgeInterface) => ({
 	txid: item.node.id,
 	content_type: item.node.data.type || item.node.tags.find(t => t.name.toLowerCase() === 'content-type')?.value || 'application/octet-stream', //placeholder only: `file`/libmagic in downloadWithChecks is the source of truth
 	content_size: item.node.data.size?.toString() ?? '-1', //null size is unknown, not zero
-	height: item.node.block.height, // missing height should not happen and cause `TypeError : Cannot read properties of null (reading 'height')`
+	height: item.node.block?.height ?? null, //null for unmined
 	parent: item.node.parent?.id || null, // the direct parent, if exists
 	owner: item.node.owner.address,
 })
@@ -129,7 +129,7 @@ const filterMetas = async (metas: GQLEdgeInterface[], indexName: string, gqlProv
 		for (const m of metas) {
 			const exist = existingById.get(m.node.id)
 			// keep only genuinely new, or existing with newer height and not already flagged
-			if (exist && !(exist.flagged !== true && m.node.block.height > exist.height)) continue
+			if (exist && !(exist.flagged !== true && m.node.block?.height > exist.height)) continue
 
 			const size = m.node.data.size as number | null //null size is unknown
 			if (size !== null && size <= min_data_size) {

@@ -12,7 +12,6 @@ import { batchUpsertTxsWithRules } from '../../../../libs/utils/pgClient'
 const ARIO_DELAY_MS = 500
 const MAX_INGRESS_CONCURRENCY = 20
 const limit = pLimit(MAX_INGRESS_CONCURRENCY)
-const MISSING_HEIGHT = 'MISSING_HEIGHT'
 const CHUNKS_BATCH_SIZE = 50
 const SHORT_DOWNLOAD_TIMEOUT = 90_000 //ms
 const LONG_DOWNLOAD_TIMEOUT = 14 * 60_000 //14 mins
@@ -75,15 +74,7 @@ export const gqlPages = async ({
 				})
 				edges = res.data.transactions.edges
 
-				/** workaround: some ingested_at items are being returned without heights, i.e. still pending. skip and get later with heights */
 				cursor = edges.length ? edges[edges.length - 1].cursor : ''
-				edges = edges.filter(({ node }) => {
-					if (!node.block?.height) {
-						console.warn(indexName, MISSING_HEIGHT, 'from', node.id)
-						return false
-					}
-					return true
-				})
 
 				break
 			} catch (err: unknown) {
