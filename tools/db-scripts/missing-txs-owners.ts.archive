@@ -3,7 +3,7 @@ import { arGql, GQLUrls } from 'ar-gql'
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 const knex = knexCreate()
-const gql = arGql({ endpointUrl: GQLUrls.goldsky })
+const gql = arGql({ endpointUrl: GQLUrls.arweave })
 
 const query = `
 query($ids: [ID!]) {
