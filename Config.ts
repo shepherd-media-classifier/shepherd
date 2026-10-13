@@ -29,7 +29,7 @@ export type Config = {
 	/** options for general endpoints */
 	host_url?: string	//defaults to https://arweave.net
 	gql_url?: string	//defaults to https://arweave.net/graphql
-	gql_url_secondary?: string	//defaults to https://arweave-search.goldsky.com/graphql
+	gql_url_secondary?: string	//defaults to https://arweave.net/graphql
 
 	/** addons to load. foldername must be installed in ./addons/ */
 	addons: Array<string>

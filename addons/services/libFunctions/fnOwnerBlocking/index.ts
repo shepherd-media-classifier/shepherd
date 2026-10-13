@@ -12,12 +12,11 @@ import { min_data_size } from '../../libs/constants'
  */
 export const handler = async (event: any) => {
 	try {
-		console.info('event', JSON.stringify(event))
 		const inputs = event as { page: GQLEdgeInterface[], pageNumber: number }
 		if (!inputs.page || !Array.isArray(inputs.page) || inputs.page.length === 0) {
 			throw new Error('missing inputs. should have { "page": "GQLEdgeInterface[non-zero]", "pageNumber": "number" }')
 		}
-		console.info(`processing page ${inputs.pageNumber}`)
+		console.info(`processing page ${inputs.pageNumber}, ${inputs.page.length} items`)
 
 		/** new plan:
 		 * receive page of gql nodes for different blocked wallets
