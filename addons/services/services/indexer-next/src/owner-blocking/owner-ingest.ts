@@ -169,7 +169,8 @@ export const ownerIngestLoop = async () => {
 				let cause = 'unprintable?'
 				try { cause = JSON.stringify(e.cause) } catch (_e) { cause = String(e.cause) }
 				const printStack = (e instanceof GQLError) ? '' : `\n${e.stack}`
-				await slackLog('owner-ingest', `FATAL error ❌ ${e.name}:${e.message} \ncause ${cause} ${printStack} \nrestarting in 30 secs...`)
+				const source = (e instanceof GQLError) ? ` from ${new URL(GQL_URL).host}` : ''
+				await slackLog('owner-ingest', `FATAL error ❌ ${e.name}:${e.message}${source} \ncause ${cause} ${printStack} \nrestarting in 30 secs...`)
 				await sleepOrig(30_000)
 			} else {
 				throw e;

@@ -52,7 +52,7 @@ export const gqlPages = async ({
 }) => {
 
 	const gql = arGql({ endpointUrl: gqlUrl, retries: 3 })
-	const gqlProvider = gqlUrl.includes('goldsky') ? 'goldsky.com' : 'arweave.net'
+	const gqlProvider = new URL(gqlUrl).host
 
 
 	let hasNextPage = true

@@ -186,7 +186,7 @@ const blockOwnerHistory = async (owner: string, method: 'auto' | 'manual') => {
 		} catch (err: unknown) {
 			console.debug(blockOwnerHistory.name, err)
 			const e = err as GQLError
-			slackLog(blockOwnerHistory.name, `GQL ERROR ${e.name}:${e.message}, retrying after 10 seconds. (${e.cause.gqlError})`, e)
+			slackLog(blockOwnerHistory.name, `GQL ERROR ${e.name}:${e.message} from ${new URL(gql.endpointUrl).host}, retrying after 10 seconds. (${e.cause.gqlError})`, e)
 			await sleep(10_000)
 			continue;
 		}
