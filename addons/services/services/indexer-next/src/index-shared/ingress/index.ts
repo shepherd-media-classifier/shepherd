@@ -16,9 +16,15 @@ interface Inputs {
 	streamSourceName: 'gateway' | 'nodes'
 	downloadTimeout: number
 }
+
+/** in-flight claims, txid => expiry, in insertion order. covers download until the classifier result reaches txs */
+const claims = new Map<string, number>()
+const CLAIM_MS = 60 * 60_000
+
 /** ingest 1 page (batch) of new items to index. */
 export const ingressHandler = async (inputs: Inputs) => {
 	const { metas, pageNumber, gqlProvider, indexName, streamSourceName, downloadTimeout } = inputs
+	const records: TxRecord[] = []
 	try {
 		console.info(indexName, `processing page ${pageNumber} of ${metas.length} records`)
 
@@ -47,7 +53,7 @@ export const ingressHandler = async (inputs: Inputs) => {
 		updated.push(...negligible)
 
 		//only build the records we'll actually download
-		const records = buildRecords(toBuild)
+		records.push(...buildRecords(toBuild))
 
 		const streamSource = streamSourceName === 'gateway' ? gatewayStream : chunkTxDataStream
 		console.debug(indexName, `page ${pageNumber} starting downloadWithChecks for ${records.length}/${metas.length} records, source '${streamSourceName}', timeout ${downloadTimeout}ms. txids: ${records.map(r => r.txid).join(', ')}`)
@@ -58,7 +64,10 @@ export const ingressHandler = async (inputs: Inputs) => {
 		for (const entry of queued) {
 			if (entry.queued === true) numQueued++
 			else if (!entry.errorId) updated.push(entry.record)
-			else errored.push(entry)
+			else {
+				errored.push(entry)
+				claims.delete(entry.record.txid) //let retries and later passes take it
+			}
 		}
 
 		//upsert updated records
@@ -90,6 +99,7 @@ export const ingressHandler = async (inputs: Inputs) => {
 		}
 	} catch (err: unknown) {
 		const e = err as Error
+		records.forEach(r => claims.delete(r.txid))
 		await slackLog(indexName, 'ingressHandler', `Fatal error ❌ ${e.name}:${e.message}`, JSON.stringify(e))
 		throw e
 	}
@@ -126,10 +136,18 @@ const filterMetas = async (metas: GQLEdgeInterface[], indexName: string, gqlProv
 		const negligible: TxRecord[] = []
 		const toBuild: GQLEdgeInterface[] = []
 
+		// no await from here: check and claim must not interleave with another ingest
+		const now = Date.now()
+		for (const [txid, expiry] of claims) {
+			if (expiry > now) break
+			claims.delete(txid)
+		}
+
 		for (const m of metas) {
 			const exist = existingById.get(m.node.id)
-			// keep only genuinely new, or existing with newer height and not already flagged
-			if (exist && !(exist.flagged !== true && m.node.block?.height > exist.height)) continue
+			// keep only genuinely new, or existing with newer height and not already flagged. null height (feed) is never re-ingested
+			if (exist && !(exist.flagged !== true && exist.height !== null && m.node.block?.height > exist.height)) continue
+			if (claims.has(m.node.id)) continue
 
 			const size = m.node.data.size as number | null //null size is unknown
 			if (size !== null && size <= min_data_size) {
@@ -142,6 +160,7 @@ const filterMetas = async (metas: GQLEdgeInterface[], indexName: string, gqlProv
 					last_update_date: new Date(),
 				} as TxRecord)
 			} else {
+				claims.set(m.node.id, now + CLAIM_MS)
 				toBuild.push(m)
 			}
 		}

@@ -11,7 +11,7 @@ import { batchUpsertTxsWithRules } from '../../../../libs/utils/pgClient'
 
 const ARIO_DELAY_MS = 500
 const MAX_INGRESS_CONCURRENCY = 20
-const limit = pLimit(MAX_INGRESS_CONCURRENCY)
+export const limit = pLimit(MAX_INGRESS_CONCURRENCY)
 const CHUNKS_BATCH_SIZE = 50
 const SHORT_DOWNLOAD_TIMEOUT = 90_000 //ms
 const LONG_DOWNLOAD_TIMEOUT = 14 * 60_000 //14 mins
@@ -20,6 +20,9 @@ const canonicalOwners = new Map<string, string>() //native (base58/0x) => canoni
 
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
+/** canonical owner address from a base64url public key */
+export const canonicalOwner = (key: string) => createHash('sha256').update(Buffer.from(key, 'base64url')).digest('base64url')
 
 interface IngestResult {
 	numQueued: number;
@@ -130,7 +133,7 @@ export const gqlPages = async ({
 				if (native.length === 43) continue
 				if (!canonicalOwners.has(native)) {
 					await waitForHost(gqlUrl)
-					canonicalOwners.set(native, createHash('sha256').update(Buffer.from((await gql.tx(node.id)).owner.key, 'base64url')).digest('base64url'))
+					canonicalOwners.set(native, canonicalOwner((await gql.tx(node.id)).owner.key))
 				}
 				node.owner.address = canonicalOwners.get(native)!
 			}
@@ -270,6 +273,16 @@ export const gqlPages = async ({
 	)
 
 	console.info(indexName, `finished ${pageCount} pages, ${numProgressed}/${itemCount} items progressed in ${(performance.now() - t0).toFixed(0)} ms`)
+}
+
+/** dispatch edges from outside gqlPages (e.g. the feed) through the same limit and download timeouts */
+export const dispatchEdges = (edges: GQLEdgeInterface[], pageNumber: string, gqlProvider: string, indexName: string) => {
+	const promises: Promise<IngestResult>[] = []
+	const small = edges.filter(edge => edge.node.data.size !== null && +edge.node.data.size < LARGE_DATA_SIZE)
+	const large = edges.filter(edge => !small.includes(edge))
+	if (small.length > 0) batchAndDispatchEdges(small, pageNumber, 'gateway', gqlProvider, indexName, promises, SHORT_DOWNLOAD_TIMEOUT)
+	if (large.length > 0) batchAndDispatchEdges(large, pageNumber, 'gateway', gqlProvider, indexName, promises, LONG_DOWNLOAD_TIMEOUT)
+	return Promise.all(promises)
 }
 
 const batchAndDispatchEdges = (
