@@ -44,8 +44,8 @@ const BATCH_SIZE = 50          // matches CHUNKS_BATCH_SIZE for the 'nodes' sour
 const DOWNLOAD_TIMEOUT = 90_000
 const SAMPLE_INTERVAL_MS = 1_000
 
-/** goldsky lives in the legacy-named GQL_URL_SECONDARY */
-const GQL_PRIMARY = process.env.GQL_URL_SECONDARY || 'https://arweave-search.goldsky.com/graphql'
+/** the legacy-named GQL_URL_SECONDARY, which held goldsky */
+const GQL_PRIMARY = process.env.GQL_URL_SECONDARY || 'https://arweave.net/graphql'
 if (!GQL_PRIMARY) throw new Error('no gql endpoint resolved (check config.dev gql_url_secondary)')
 
 /** load up to MAX_PAGES of fixtures into one flat list of edges */

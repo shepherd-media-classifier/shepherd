@@ -49,7 +49,7 @@ console.info(`Queue URL:    ${QueueUrl}`)
 // Fetch real tx metadata from GQL and build a proper TxRecord for S3 metadata.
 // watch-sqs.ts merges S3 metadata with body.extra.filterResult, so flagged=true
 // comes from the SQS message rather than here.
-const gqlUrl = config.gql_url_secondary ?? 'https://arweave-search.goldsky.com/graphql'
+const gqlUrl = config.gql_url_secondary ?? 'https://arweave.net/graphql'
 const gql = arGql({ endpointUrl: gqlUrl })
 
 try {
