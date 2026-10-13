@@ -3,9 +3,7 @@ import assert from "node:assert/strict";
 import { after, afterEach, beforeEach, describe, it } from 'node:test'
 
 import { txidToRange } from '../libs/byte-ranges/txidToRange/txidToRange'
-import { CHUNK_ALIGN_GENESIS, CHUNK_SIZE, GQL_URL, GQL_URL_SECONDARY } from '../libs/byte-ranges/txidToRange/constants-byteRange'
-import { ans104HeaderData } from '../libs/byte-ranges/txidToRange/ans104HeaderData'
-import { byteRange102 } from '../libs/byte-ranges/txidToRange/byteRange102'
+import { CHUNK_ALIGN_GENESIS, CHUNK_SIZE } from '../libs/byte-ranges/txidToRange/constants-byteRange'
 
 import { clearTimerHttpApiNodes } from '../libs/utils/update-range-nodes'
 import { destroyChunkStreamAgent } from '../libs/chunkStreams/chunkFetch'
@@ -115,61 +113,38 @@ describe('txidToRange tests', () => {
 			assert.equal(bytes.end, 387551298887926n, 'weaveEnd should be the grid-aligned end of the bundle')
 		})
 
-	})
+		it('tests a dataItem that starts earlier but ends in the last chunk of an L1 bundle', async () => {
+			/**
+			 * Regression: `LcARVHq1...` (index 744 in `45MQ...`) starts in chunk 3 and its last 100235 bytes
+			 * are in the last chunk (bucket 15). weaveEnd must cover that bucket, not stop at bucket 14's end.
+			 */
+			const bytes = await txidToRange('LcARVHq1Gj_w9kVO_IaHnfIyJR7m0HB1JPatpE2N65c', '45MQkIdAetkAEjgipwugitrNAOicM8oP_jsxqQ8Py_4', undefined)
 
-	describe('stream ans104 header tests', () => {
-		it('can read stream ans104', async () => {
-
-			const res = await ans104HeaderData('MemPKvViQVcXnJdQWRlg9-jwNhSpTDH7g97MtzaQgEY', null, undefined)
-			assert.equal(res.numDataItems, 10000, 'should be 10000 dataItems')
-			assert.equal(res.diIds.length, res.diSizes.length, 'should be same numbers of sizes and ids')
-
-		})
-	})
-
-	describe('ans102 tests', () => {
-		// it('can read stream ans102', async () => {
-
-		// 	//https://viewblock.io/arweave/tx/K-drBtpZ0C2-bPb0M5dFPla8FVKgPAOak-QqPoMKxnU
-
-		// 	const res = await ans102HeaderData(`K-drBtpZ0C2-bPb0M5dFPla8FVKgPAOak-QqPoMKxnU`)
-		// 	assert.equal(res.numDataItems, 2, 'should be 2 dataItems')
-		// 	assert.equal(res.diIds.length, res.diSizes.length, 'should be same numbers of sizes and ids')
-
-		// })
-
-		it('tests a pre-align-epoch ans102 dataItem`s byte-range is clamped', async () => {
-			const parentid = 'zv0DyLf95e9JcIDq9owI9Q2z1578m_ozFAUWsP4rrwM'
-			const txid0 = 'ceBxKEAFdGAzHySCs7qGaZPOdITYu_V87XyLjLZuFPk'  // 0
-			const txid1 = 'cLLgimFnpFyiRbOePC408BmyLbZzt8pr_gFpXKxD9Ng' // 1
-
-			const bytes0 = await byteRange102(txid0, parentid)
-			const chunkStart0 = 4397870113631n
-			const chunkEnd0 = 4397870364650n
-			assert.equal(bytes0.start, chunkStart0, 'should equal chunkStart0')
-			assert.equal(bytes0.end, chunkEnd0, 'should equal chunkEnd0')
-
-			const bytes1 = await byteRange102(txid1, parentid)
-			const chunkStart1 = 4397870113631n
-			const chunkEnd1 = 4397899835930n
-			assert.equal(bytes1.start, chunkStart1, 'should equal chunkStart1')
-			assert.equal(bytes1.end, chunkEnd1, 'should equal chunkEnd1')
+			assert.equal(bytes.start, 387551295480054n, 'weaveStart should be chunk 3\'s bucket')
+			assert.equal(bytes.end, 387551298887926n, 'weaveEnd should include the last chunk\'s bucket')
+			assert.equal(bytes.dataStart, 192483n)
+			assert.equal(bytes.dataSize, 2933244n)
 		})
 
-		it('tests a ans102 dataItem`s byte-range', async () => {
-			const parentid = '34mHidbXtk3IpqEJ4Axgl1itjzCvw0-Vok-RaBxDa-c'
-			const txid0 = 'BneBmCJKk88ox2P9tFFYCjU1o6N-1ZOT1kD9qGovRFg'
+		it('tests a pre-CHUNK_ALIGN_GENESIS dataItem uses its chunks\' real bounds', async () => {
+			//block 812960. chunks are not on the 256KB grid
+			const bytes = await txidToRange('48YX8lqFs80IDpBa2dGOnVx7sfxR9vvDgVcng_6SIgM', 'rDHiHhqwZiDk_bufw0ZZEd54iVZZyYzDo0gtd_bON5M', undefined)
 
-			const bytes0 = await byteRange102(txid0, parentid)
-			const chunkStart0 = 93870741299446n
-			const chunkEnd0 = 93870741561590n
-			assert.equal(bytes0.start, chunkStart0, 'should equal chunkStart0')
-			assert.equal(bytes0.end, chunkEnd0, 'should equal chunkEnd0')
+			assert.equal(bytes.start, 30602409953273n, 'weaveStart should be the first chunk\'s real start')
+			assert.equal(bytes.end, 30602414147577n, 'weaveEnd should be the last chunk\'s real end')
+			assert.equal(bytes.dataStart, 253382n)
+			assert.equal(bytes.dataSize, 3741983n)
+		})
 
-
+		it('returns a 404 range for an unknown id', async () => {
+			const bytes = await txidToRange('1234567890123456789012345678901234567890_-_', 'Yn9PXQvhb1stfjVxJwY4Ei4aIrqUbYVVkwlQiah_8FQ', undefined)
+			assert.equal(bytes.status, 404)
+			assert.equal(bytes.start, -1n)
 		})
 
 	})
+
+
 
 	// describe('individual quick test',()=>{
 
@@ -186,23 +161,5 @@ describe('txidToRange tests', () => {
 
 	// 	})
 	// })
-
-	describe('Orphan data in DB tests', () => {
-		it('should throw an error when an ans104 parent is not found', async () => {
-			const badParent = '1234567890123456789012345678901234567890_-_'
-			try {
-				const bytes = await txidToRange('CagF6yAfaqIUYi0IHJ1FwmkdMqBxjVJBntyD1X1QF1U', badParent, undefined)
-				assert.fail('should not get here. an error should have been thrown')
-			} catch (err: unknown) {
-				const e = err as Error
-				/**
-				 * in production this error will bubble up to slackLogger reporting.
-				 * we will create suitable responses based on future data received.
-				 * unfortunately using today's data i've found errors in both current gql endpoints.
-				 * */
-				assert.equal(e.message, `Parent ${badParent} not found using ${GQL_URL} or ${GQL_URL_SECONDARY}. id CagF6yAfaqIUYi0IHJ1FwmkdMqBxjVJBntyD1X1QF1U`)
-			}
-		})
-	})
 
 })

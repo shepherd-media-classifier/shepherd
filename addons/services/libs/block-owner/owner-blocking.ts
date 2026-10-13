@@ -10,24 +10,18 @@ import { OwnersListRecord } from '../../types'
 import plimit from 'p-limit'
 
 const limit = plimit(10) //concurrency limit
+const PAUSE_OWNER_BLOCKING = true
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
-if (!process.env.GQL_URL_SECONDARY) throw new Error('missing env var: GQL_URL_SECONDARY')
 if (!process.env.GQL_URL) throw new Error('missing env var: GQL_URL')
 
-const gql = arGql({ endpointUrl: process.env.GQL_URL_SECONDARY, retries: 3 }) //defaults to goldsky
-const gqlBackup = arGql({ endpointUrl: process.env.GQL_URL, retries: 3 }) //defaults to arweave
+export const gql = arGql({ endpointUrl: process.env.GQL_URL, retries: 3 }) //defaults to arweave
 const query = `
 query($cursor: String, $owners: [String!]) {
   transactions(
     # your query parameters
     owners: $owners
-    tags: [
-      {name:"Bundle-Version", op:NEQ},
-      {name: "type", values: "redstone-oracles", op: NEQ},
-    ]
-
 		#remove pending results
 		sort: HEIGHT_DESC
     
@@ -45,6 +39,7 @@ query($cursor: String, $owners: [String!]) {
         parent{id}
         data{size}
 				owner{address}
+				tags{name value}
       }
     }
   }
@@ -98,10 +93,12 @@ const blockOwnerHistory = async (owner: string, method: 'auto' | 'manual') => {
 	 * 1. infractions table should already exist
 	 * 2. create owner table
 	 * 3. gql all txids
-	 * 4. send pages to lambdas (getParents, calc ranges, build records, insert to owner table)
+	 * 4. send pages to lambdas (calc ranges, build records, insert to owner table)
 	 */
 
-	const totalItems = await ownerTotalCount(owner)
+	/** arweave.net `owners:` only matches native addresses for non-RSA signers */
+	const ownerNative: string = (await pool.query(`SELECT COALESCE(owner_native, owner) AS owner FROM owners_list WHERE owner = $1`, [owner])).rows[0].owner
+	const totalItems = await ownerTotalCount(ownerNative)
 
 	/** check owner blocking not currently in progess or done */
 	//TODO: use the param store for state instead of the db
@@ -122,7 +119,7 @@ const blockOwnerHistory = async (owner: string, method: 'auto' | 'manual') => {
 		}
 
 		/** don't automatically block giant wallets! */
-		if (totalItems > 100_000) {
+		if (PAUSE_OWNER_BLOCKING || totalItems > 100_000) {
 			await slackLog(blockOwnerHistory.name, `🚫:warning: ${owner} has ${totalItems.toLocaleString()} items. NOT BLOCKING :warning:🚫`)
 			/** update owner_list status, 
 			 * so that owners are not added to addresses.txt and blockIngest doesn't break */
@@ -146,7 +143,7 @@ const blockOwnerHistory = async (owner: string, method: 'auto' | 'manual') => {
 	let hasNextPage = true
 	let cursor = ''
 	const variables = {
-		owners: [owner.trim()],
+		owners: [ownerNative.trim()],
 	}
 	const counts = { page: 0, items: 0, inserts: 0 }
 

@@ -3,7 +3,7 @@ import dbConnection from '../../../libs/utils/knexCreate'
 import { slackLog } from '../../../libs/utils/slackLog'
 import { ownerToInfractionsTablename } from '../../../libs/block-owner/owner-table-utils'
 import { infraction_limit } from '../../../libs/constants'
-import { queueBlockOwner } from '../../../libs/block-owner/owner-blocking'
+import { queueBlockOwner, gql } from '../../../libs/block-owner/owner-blocking'
 import { UpdateItem, updateS3Lists } from '../../../libs/s3-lists/update-lists'
 import { updateAddresses } from '../../../libs/s3-lists/update-addresses'
 import { OwnersListRecord } from '../../../types'
@@ -139,7 +139,8 @@ const ownerUpdate = async (owner: string, txid: string) => {
 		if (ownerRecord) {
 			await trx('owners_list').where('owner', owner).update({ infractions })
 		} else {
-			const inserted = await trx<OwnersListRecord>('owners_list').insert({ owner, infractions, add_method: 'auto' }).returning('*')
+			const native = (await gql.tx(txid))?.owner.address //arweave.net `owners:` only matches native addresses for non-RSA signers
+			const inserted = await trx<OwnersListRecord>('owners_list').insert({ owner, infractions, add_method: 'auto', owner_native: native !== owner ? native : null }).returning('*')
 			ownerRecord = inserted[0]
 		}
 

@@ -61,7 +61,7 @@ export class ServicesComponent extends pulumi.ComponentResource {
       new docker.Container('indexer-next', {
         name: n('indexer-next'),
         image: image.repoDigest,
-        networksAdvanced: [{ name: networkName }],
+        networksAdvanced: [{ name: networkName, aliases: ['indexer-next'] }],
         envs: pulumi.all([storageEnvs, awsCompat]).apply(([storage, aws]) => [
           ...storage,
           ...aws,
@@ -71,6 +71,7 @@ export class ServicesComponent extends pulumi.ComponentResource {
           `GQL_URL_SECONDARY=${config.gql_url_secondary || 'https://arweave-search.goldsky.com/graphql'}`,
           `LISTS_BUCKET=shepherd-lists`,
           `AWS_INPUT_BUCKET=shepherd-input`,
+          `HB_FEED_NODES=${JSON.stringify(config.feed_nodes || {})}`,
           `ingress_nodes=${JSON.stringify(config.ingress_nodes)}`,
           `http_api_nodes=${JSON.stringify(config.http_api_nodes)}`,
           `http_api_nodes_url=${config.http_api_nodes_url || ''}`,

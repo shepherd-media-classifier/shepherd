@@ -9,6 +9,7 @@ import { dropOwnerTables, ownerToInfractionsTablename, ownerToOwnerTablename } f
 import { TxRecord } from 'shepherd-plugin-interfaces/types'
 // import { moveInboxToTxs } from '../services/http-api/src/service/move-records'
 import { redis, updateBlockOwnerQueue } from '../libs/utils/redis-state'
+import { clearTimerHttpApiNodes } from '../libs/utils/update-range-nodes'
 
 
 console.info(`using ${process.env.HTTP_API} for HTTP_API ip address`)
@@ -72,6 +73,7 @@ describe('http api', () => {
 		await pool.end()
 		await knex.destroy()
 		await redis.quit().catch(console.error)
+		clearTimerHttpApiNodes()
 	})
 
 

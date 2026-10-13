@@ -1,7 +1,5 @@
 import { slackLog } from '../../../../../libs/utils/slackLog'
-import { arGql, ArGqlInterface } from 'ar-gql'
-import { GQLEdgeInterface, GQLError } from 'ar-gql/dist/faces'
-import moize from 'moize'
+import { GQLEdgeInterface } from 'ar-gql/dist/faces'
 import { TxRecord } from 'shepherd-plugin-interfaces/types'
 import pool, { batchUpsertTxsWithRules } from '../../../../../libs/utils/pgClient'
 import { min_data_size } from '../../../../../libs/constants'
@@ -10,36 +8,35 @@ import { chunkTxDataStream } from '../../../../../libs/chunkStreams/chunkTxDataS
 import { gatewayStream } from '../../../../../libs/chunkStreams/gatewayStream'
 
 
-const ARIO_DELAY_MS = 500
-
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
-
-
 interface Inputs {
 	metas: GQLEdgeInterface[]
 	pageNumber: string
-	gqlUrl: string
-	gqlUrlBackup: string
 	gqlProvider: string
 	indexName: string
 	streamSourceName: 'gateway' | 'nodes'
 	downloadTimeout: number
 }
+
+/** in-flight claims, txid => expiry, in insertion order. covers download until the classifier result reaches txs */
+const claims = new Map<string, number>()
+const CLAIM_MS = 60 * 60_000
+
 /** ingest 1 page (batch) of new items to index. */
 export const ingressHandler = async (inputs: Inputs) => {
-	const { metas, pageNumber, gqlUrl, gqlUrlBackup, gqlProvider, indexName, streamSourceName, downloadTimeout } = inputs
+	const { metas, pageNumber, gqlProvider, indexName, streamSourceName, downloadTimeout } = inputs
+	const records: TxRecord[] = []
 	try {
 		console.info(indexName, `processing page ${pageNumber} of ${metas.length} records`)
 
 		/**
 		 * filter records:-
-		 * using metadata (in filterMetas, before the expensive buildRecords parent walk):
+		 * using metadata (in filterMetas):
 		 * - already in the database with the same/older height, or already flagged => discarded
 		 * - size <= 4k => marked negligible-data and stored as-is (no download)
 		 * while retrieving data (downloadWithChecks):
 		 * - use network nodes to retrieve data (make this modular so we can switch to gateway streams also)
 		 * - MIME sniffed by `file`/libmagic (256kb sample) starts with image/video/audio (sometimes detected as audio contains video)
-		 *   - generic/unknown MIMEs (octet-stream, x-empty) are allowed through; other specific non-media types are rejected
+		 *   - everything else is rejected, incl. unidentified octet-stream. gql no longer pre-filters content-type
 		 *   - [handle html/pdf/docs later]
 		 * - partial data allowed
 		 * - actual data > 4kb again
@@ -55,14 +52,8 @@ export const ingressHandler = async (inputs: Inputs) => {
 		const { negligible, toBuild } = await filterMetas(metas, indexName, gqlProvider)
 		updated.push(...negligible)
 
-		//only build (incl. the parent-chain walk) the records we'll actually download
-		const records = await buildRecords(
-			toBuild,
-			arGql({ endpointUrl: gqlUrl }),
-			indexName,
-			gqlProvider,
-			arGql({ endpointUrl: gqlUrlBackup })
-		)
+		//only build the records we'll actually download
+		records.push(...buildRecords(toBuild))
 
 		const streamSource = streamSourceName === 'gateway' ? gatewayStream : chunkTxDataStream
 		console.debug(indexName, `page ${pageNumber} starting downloadWithChecks for ${records.length}/${metas.length} records, source '${streamSourceName}', timeout ${downloadTimeout}ms. txids: ${records.map(r => r.txid).join(', ')}`)
@@ -73,12 +64,15 @@ export const ingressHandler = async (inputs: Inputs) => {
 		for (const entry of queued) {
 			if (entry.queued === true) numQueued++
 			else if (!entry.errorId) updated.push(entry.record)
-			else errored.push(entry)
+			else {
+				errored.push(entry)
+				claims.delete(entry.record.txid) //let retries and later passes take it
+			}
 		}
 
 		//upsert updated records
 		console.debug(indexName, `starting database batch insert for ${updated.length} records`)
-		const numInserted = await batchUpsertTxsWithRules(updated.map(r => ({
+		const numInserted = (await batchUpsertTxsWithRules(updated.map(r => ({
 			//initial fields
 			txid: r.txid,
 			content_type: r.content_type,
@@ -94,7 +88,7 @@ export const ingressHandler = async (inputs: Inputs) => {
 			byte_start: r.byte_start ?? null, //present when the download discovered the byte-range (e.g. mimetype rejects)
 			byte_end: r.byte_end ?? null,
 			last_update_date: r.last_update_date || new Date(),
-		}) as TxRecord), 'txs') ?? 0
+		}) as TxRecord), 'txs'))?.length ?? 0
 
 		console.info(indexName, `page ${pageNumber}, ${metas.length} metas (${records.length} built), ${numQueued} queued in S3, ${numInserted}/${updated.length} inserts, ${errored.length} errored.`)
 
@@ -105,105 +99,30 @@ export const ingressHandler = async (inputs: Inputs) => {
 		}
 	} catch (err: unknown) {
 		const e = err as Error
+		records.forEach(r => claims.delete(r.txid))
 		await slackLog(indexName, 'ingressHandler', `Fatal error ❌ ${e.name}:${e.message}`, JSON.stringify(e))
 		throw e
 	}
 }
 
-const getParent = moize(
-	async (p: string, gql: ArGqlInterface) => {
-		const res = await gql.tx(p)
-		return res.parent?.id || null
-	},
-	{
-		isPromise: true,
-		maxSize: 10_000, //allow for caching of maxSize number of bundles per query (1 block).
-		maxArgs: 1,
-		// onCacheHit: ()=>console.log(`getParent cache hit`),
-		// onCacheAdd: async(cache, options)=> console.log(cache.keys, cache.values),
-	},
-)
-
-/** map a raw GQL meta to the record fields we store, without the parent-chain
- * walk. Shared by buildRecords (for big records) and the negligible path. */
+/** map a raw GQL meta to the record fields we store. Shared by buildRecords (for big records) and the negligible path. */
 const metaToRecord = (item: GQLEdgeInterface) => ({
 	txid: item.node.id,
-	content_type: item.node.data.type || item.node.tags.find(t => t.name.toLowerCase() === 'content-type')!.value,
-	content_size: item.node.data.size.toString(),
-	height: item.node.block.height, // missing height should not happen and cause `TypeError : Cannot read properties of null (reading 'height')`
+	content_type: item.node.data.type || item.node.tags.find(t => t.name.toLowerCase() === 'content-type')?.value || 'application/octet-stream', //placeholder only: `file`/libmagic in downloadWithChecks is the source of truth
+	content_size: item.node.data.size?.toString() ?? '-1', //null size is unknown, not zero
+	height: item.node.block?.height ?? null, //null for unmined
 	parent: item.node.parent?.id || null, // the direct parent, if exists
-	owner: item.node.owner.address.padEnd(43, ' '), //pad non-arweave addresses to 43 chars
+	owner: item.node.owner.address,
 })
 
 /** exported for manual flagging tool */
-export const buildRecords = async (metas: GQLEdgeInterface[], gql: ArGqlInterface, indexName: string, gqlProvider: string, gqlBackup: ArGqlInterface) => {
-
-	const records: TxRecord[] = []
-
-	for (const item of metas) {
-		const { txid, content_type, content_size, height, parent: directParent, owner } = metaToRecord(item)
-		let parent = directParent
-		const parents: string[] = []
-
-		// loop to find all nested parents
-		if (parent) {
-			let p: string | null = parent
-			do {
-				const t0 = performance.now()
-				const p0: string = p
-
-				try {
-					p = await getParent(p0, gql)
-				} catch (eOuter: unknown) {
-					const outerMessage = (eOuter as GQLError).message
-					await slackLog(`getParent error: "${outerMessage}" while fetching parent: "${p}" using: ${gqlProvider}, ${height}. Trying gqlBackup now.`)
-					try {
-						p = await getParent(p0, gqlBackup)
-					} catch (eInner: unknown) {
-						const gqlEInner = eInner as GQLError
-						throw new TypeError(`getParent error: "${gqlEInner.message}" while fetching parent: ${p0} for dataItem: ${txid} USING GQLBACKUP: ${gqlBackup.endpointUrl.includes('goldsky') ? 'gold' : 'ario'}. ${gqlEInner.cause.gqlError}`)
-					}
-				}
-
-				const t1 = performance.now() - t0
-
-				/* if time less than 10ms, it's definitely a cache hit */
-				if (t1 > 10) {
-					let logstring = `got parent ${p0} details in ${t1.toFixed(0)}ms.`
-
-					/* slow down, too hard to get out of arweave.net's rate-limit once it kicks in */
-					if (gql.endpointUrl.includes('arweave.net')) {
-						let timeout = ARIO_DELAY_MS - t1
-						if (timeout < 0) timeout = 0
-						logstring += ` pausing for ${timeout.toFixed(0)}ms.`
-						await sleep(timeout)
-					}
-					console.info(indexName, txid, logstring, gqlProvider)
-				}
-
-			} while (p && parents.push(p))
-		}
-
-		records.push({
-			txid,
-			content_type,
-			content_size,
-			height,
-			parent,
-			...(parents.length > 0 && { parents }), //leave `parents` null if not nested
-			owner,
-		} as TxRecord)
-	}
-
-	return records;
-}
+export const buildRecords = (metas: GQLEdgeInterface[]) => metas.map(item => metaToRecord(item) as TxRecord)
 
 /**
- * Filter raw GQL metas against the db *before* the expensive buildRecords
- * parent-chain walk:
+ * Filter raw GQL metas against the db *before* building records:
  * - discard metas already stored unchanged (existing & not newer height, or flagged)
  * - negligible survivors (<= min_data_size) are marked and returned for writing as-is
- *   (no download, and buildRecords' parent walk is irrelevant for them)
+ *   (no download)
  * - big survivors are returned as metas to build + download
  * Keys only on txid/height/size, all present in the raw meta.
  */
@@ -217,12 +136,21 @@ const filterMetas = async (metas: GQLEdgeInterface[], indexName: string, gqlProv
 		const negligible: TxRecord[] = []
 		const toBuild: GQLEdgeInterface[] = []
 
+		// no await from here: check and claim must not interleave with another ingest
+		const now = Date.now()
+		for (const [txid, expiry] of claims) {
+			if (expiry > now) break
+			claims.delete(txid)
+		}
+
 		for (const m of metas) {
 			const exist = existingById.get(m.node.id)
-			// keep only genuinely new, or existing with newer height and not already flagged
-			if (exist && !(exist.flagged !== true && m.node.block.height > exist.height)) continue
+			// keep only genuinely new, or existing with newer height and not already flagged. null height (feed) is never re-ingested
+			if (exist && !(exist.flagged !== true && exist.height !== null && m.node.block?.height > exist.height)) continue
+			if (claims.has(m.node.id)) continue
 
-			if (m.node.data.size <= min_data_size) {
+			const size = m.node.data.size as number | null //null size is unknown
+			if (size !== null && size <= min_data_size) {
 				negligible.push({
 					...metaToRecord(m),
 					parent: null, //negligible data is never fetched, so no parent chain is stored (matches prior behaviour)
@@ -232,6 +160,7 @@ const filterMetas = async (metas: GQLEdgeInterface[], indexName: string, gqlProv
 					last_update_date: new Date(),
 				} as TxRecord)
 			} else {
+				claims.set(m.node.id, now + CLAIM_MS)
 				toBuild.push(m)
 			}
 		}

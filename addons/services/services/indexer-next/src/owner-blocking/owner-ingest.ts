@@ -10,9 +10,8 @@ import { GQLError } from 'ar-gql/dist/faces'
 
 if (!process.env.LISTS_BUCKET) throw new Error('missing env var, LISTS_BUCKET')
 const LISTS_BUCKET = process.env.LISTS_BUCKET!
-if (!process.env.GQL_URL_SECONDARY) throw new Error('missing env var: GQL_URL_SECONDARY')
-const GQL_URL_SECONDARY = process.env.GQL_URL_SECONDARY!
-const gql = arGql({ endpointUrl: GQL_URL_SECONDARY, retries: 3 }) //defaults to goldsky
+if (!process.env.GQL_URL) throw new Error('missing env var: GQL_URL')
+const gql = arGql({ endpointUrl: process.env.GQL_URL, retries: 3 }) //defaults to arweave, addresses.txt holds native forms for its `owners:`
 
 const ingestQuery = `
 query($cursor: String, $owners: [String!], $minAt: Int, $maxAt: Int) {
@@ -27,11 +26,6 @@ query($cursor: String, $owners: [String!], $minAt: Int, $maxAt: Int) {
 		#remove pending results
 		sort: HEIGHT_DESC
 
-		tags: [
-			{name:"Bundle-Version", op:NEQ},
-			{name: "type", values: "redstone-oracles", op: NEQ},
-		]
-		
 		# standard template below
 		after: $cursor
 		first: 100
@@ -46,6 +40,7 @@ query($cursor: String, $owners: [String!], $minAt: Int, $maxAt: Int) {
 				parent{id}
 				data{size}
 				owner{address}
+				tags{name value}
 			}
 		}
 	}

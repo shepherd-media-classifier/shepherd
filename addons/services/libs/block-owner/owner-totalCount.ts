@@ -1,12 +1,7 @@
 import { arGql } from 'ar-gql'
 import moize from 'moize'
 
-//sanity check
-const GQL_URL_SECONDARY = process.env.GQL_URL_SECONDARY
-if (!GQL_URL_SECONDARY?.includes('goldsky')) console.warn(`GQL_URL_SECONDARY: '${GQL_URL_SECONDARY}' must be a goldsky endpoint!`)
-
-
-const gql = arGql({ endpointUrl: GQL_URL_SECONDARY, retries: 1 }) //defaults to goldsky
+const gql = arGql({ endpointUrl: process.env.GQL_URL, retries: 1 }) //defaults to arweave
 
 export const ownerTotalCount = moize(
 	async (owner: string) => {
@@ -26,11 +21,11 @@ export const ownerTotalCount = moize(
 		}
 		const { data } = await gql.run(query, variables)
 
-		//@ts-expect-error ar-gql doesn't have goldsky specific types
+		//@ts-expect-error ar-gql doesn't have `count` in its types
 		const count = data.transactions.count
 		console.info(`ownerTotalCount( ${owner} ) = ${count}`)
 
-		return count as number;
+		return Number(count) //arweave.net returns a string
 	},
 	{
 		maxSize: 1_000, //is this enough?

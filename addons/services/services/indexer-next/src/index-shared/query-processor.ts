@@ -1,5 +1,7 @@
 import pLimit from 'p-limit'
+import { createHash } from 'crypto'
 import { slackLog } from '../../../../libs/utils/slackLog'
+import { waitForHost, pauseHost } from '../../../../libs/utils/rate-limit'
 import { arGql } from 'ar-gql'
 import GQLResultInterface, { GQLError, GQLEdgeInterface } from 'ar-gql/dist/faces'
 import { ingressHandler } from './ingress/index'
@@ -9,15 +11,18 @@ import { batchUpsertTxsWithRules } from '../../../../libs/utils/pgClient'
 
 const ARIO_DELAY_MS = 500
 const MAX_INGRESS_CONCURRENCY = 20
-const limit = pLimit(MAX_INGRESS_CONCURRENCY)
-const MISSING_HEIGHT = 'MISSING_HEIGHT'
+export const limit = pLimit(MAX_INGRESS_CONCURRENCY)
 const CHUNKS_BATCH_SIZE = 50
 const SHORT_DOWNLOAD_TIMEOUT = 90_000 //ms
 const LONG_DOWNLOAD_TIMEOUT = 14 * 60_000 //14 mins
 const LARGE_DATA_SIZE = 500 * 1024 * 1024 //500MB
+const canonicalOwners = new Map<string, string>() //native (base58/0x) => canonical owner, fixed per wallet
 
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
+/** canonical owner address from a base64url public key */
+export const canonicalOwner = (key: string) => createHash('sha256').update(Buffer.from(key, 'base64url')).digest('base64url')
 
 interface IngestResult {
 	numQueued: number;
@@ -37,14 +42,12 @@ export const gqlPages = async ({
 	variables,
 	indexName,
 	gqlUrl,
-	gqlUrlBackup,
 	streamSourceName = 'gateway',// 'nodes',
 }: {
 	query: string
 	variables: Record<string, any>,
 	indexName: string,
 	gqlUrl: string,
-	gqlUrlBackup: string,
 	streamSourceName?: 'gateway' | 'nodes',
 }) => {
 
@@ -64,7 +67,9 @@ export const gqlPages = async ({
 		const p0 = performance.now()
 
 		let edges, res!: GQLResultInterface
+		let attempt = 0
 		while (true) {
+			await waitForHost(gqlUrl)
 			try {
 				res = await gql.run(query, {
 					...variables,
@@ -72,15 +77,7 @@ export const gqlPages = async ({
 				})
 				edges = res.data.transactions.edges
 
-				/** workaround: some ingested_at items are being returned without heights, i.e. still pending. skip and get later with heights */
 				cursor = edges.length ? edges[edges.length - 1].cursor : ''
-				edges = edges.filter(({ node }) => {
-					if (!node.block?.height) {
-						console.warn(indexName, MISSING_HEIGHT, 'from', node.id)
-						return false
-					}
-					return true
-				})
 
 				break
 			} catch (err: unknown) {
@@ -96,7 +93,21 @@ export const gqlPages = async ({
 					continue
 				}
 
-				const ms = (Number(status) === 429) ? 30_000 : 10_000
+				/** 429s pause every request to the host, then retry indefinitely */
+				if (Number(status) === 429) {
+					const wait = pauseHost(gqlUrl, e.cause?.headers?.get('retry-after'), attempt++)
+					console.warn(indexName, `gql 429. pausing all requests to ${new URL(gqlUrl).host} for ${wait}s`, gqlProvider)
+					continue
+				}
+
+				/** HB refuses blocks it hasn't fully indexed: skip. pass2 (tip-20) retries pass1's skips, pass2's are lost */
+				if (e.cause?.gqlError?.includes('is not fully indexed') && ingestPromises.length === 0) {
+					if (indexName === 'indexer_pass2') await slackLog(indexName, 'skipped, block not fully indexed', JSON.stringify(variables), gqlProvider)
+					else console.warn(indexName, 'skipped, block not fully indexed', JSON.stringify(variables), gqlProvider)
+					return
+				}
+
+				const ms = 10_000
 
 				/** in all other cases sleep before retrying */
 				let cause = 'unprintable?'
@@ -116,12 +127,24 @@ export const gqlPages = async ({
 			/* filter dupes from edges. batch insert does not like dupes */
 			edges = [...new Map(edges.map(edge => [edge.node.id, edge])).values()]
 
+			/* non-RSA owners come back native (base58/0x), canonicalise from owner.key */
+			for (const { node } of edges) {
+				const native = node.owner.address
+				if (native.length === 43) continue
+				if (!canonicalOwners.has(native)) {
+					await waitForHost(gqlUrl)
+					canonicalOwners.set(native, canonicalOwner((await gql.tx(node.id)).owner.key))
+				}
+				node.owner.address = canonicalOwners.get(native)!
+			}
+
 			/* store for our retries */
 			edges.forEach(edge => allEdges.set(edge.node.id, edge))
 
 			/* separate out large files */
 			const { small, large } = edges.reduce((acc, edge) => {
-				+edge.node.data.size < LARGE_DATA_SIZE ? acc.small.push(edge) : acc.large.push(edge)
+				const size = edge.node.data.size as number | null; //null size is unknown, treat as large
+				(size !== null && size < LARGE_DATA_SIZE) ? acc.small.push(edge) : acc.large.push(edge)
 				return acc;
 			}, { small: [], large: [] } as { small: GQLEdgeInterface[], large: GQLEdgeInterface[] })
 
@@ -136,8 +159,6 @@ export const gqlPages = async ({
 					small,
 					pageCount.toString(),
 					streamSourceName,
-					gqlUrl,
-					gqlUrlBackup,
 					gqlProvider,
 					indexName,
 					ingestPromises,
@@ -151,8 +172,6 @@ export const gqlPages = async ({
 					large,
 					pageCount.toString(),
 					streamSourceName,
-					gqlUrl,
-					gqlUrlBackup,
 					gqlProvider,
 					indexName,
 					ingestPromises,
@@ -207,8 +226,6 @@ export const gqlPages = async ({
 			toRetry,
 			'retries',
 			'gateway', //
-			gqlUrl,
-			gqlUrlBackup,
 			gqlProvider,
 			indexName,
 			ingestPromisesRetries,
@@ -258,12 +275,20 @@ export const gqlPages = async ({
 	console.info(indexName, `finished ${pageCount} pages, ${numProgressed}/${itemCount} items progressed in ${(performance.now() - t0).toFixed(0)} ms`)
 }
 
+/** dispatch edges from outside gqlPages (e.g. the feed) through the same limit and download timeouts */
+export const dispatchEdges = (edges: GQLEdgeInterface[], pageNumber: string, gqlProvider: string, indexName: string) => {
+	const promises: Promise<IngestResult>[] = []
+	const small = edges.filter(edge => edge.node.data.size !== null && +edge.node.data.size < LARGE_DATA_SIZE)
+	const large = edges.filter(edge => !small.includes(edge))
+	if (small.length > 0) batchAndDispatchEdges(small, pageNumber, 'gateway', gqlProvider, indexName, promises, SHORT_DOWNLOAD_TIMEOUT)
+	if (large.length > 0) batchAndDispatchEdges(large, pageNumber, 'gateway', gqlProvider, indexName, promises, LONG_DOWNLOAD_TIMEOUT)
+	return Promise.all(promises)
+}
+
 const batchAndDispatchEdges = (
 	edges: GQLEdgeInterface[],
 	pageNumber: string,
 	streamSourceName: 'gateway' | 'nodes',
-	gqlUrl: string,
-	gqlUrlBackup: string,
 	gqlProvider: string,
 	indexName: string,
 	promises: Promise<IngestResult>[],
@@ -280,8 +305,6 @@ const batchAndDispatchEdges = (
 			const processed = await ingressHandler({
 				metas: batch,
 				pageNumber: batchPage,
-				gqlUrl,
-				gqlUrlBackup,
 				gqlProvider,
 				indexName,
 				streamSourceName,

@@ -97,7 +97,7 @@ describe('downloadWithChecks', () => {
 		assert.deepEqual(resGw.record, { txid: 'error', content_type: 'unknown', }, 'record should be passed through')
 		assert(resGw.errorId?.includes('failed: 500'), `errorId: "${resGw.errorId}" didnt match`)
 
-		//chunkTxDataStream
+		//chunkTxDataStream: HB 404s an unknown id, so it's marked 404 rather than retried
 		const resChunk = await processRecord(
 			{ txid: 'error', content_type: 'unknown', } as TxRecord,
 			(new AbortController().signal),
@@ -105,8 +105,10 @@ describe('downloadWithChecks', () => {
 		)
 
 		assert(resChunk.queued === false, 'queued should be false')
-		assert.deepEqual(resChunk.record, { txid: 'error', content_type: 'unknown', }, 'record should be passed through')
-		assert(resChunk.errorId?.includes('undiscoverable byte-range'), 'errorId didnt match')
+		assert(resChunk.errorId === undefined, `errorId: "${resChunk.errorId}" should be undefined`)
+		assert(resChunk.record.flagged === false, 'should have set flagged to false')
+		assert(resChunk.record.valid_data === false, 'should have set valid_data to false')
+		assert(resChunk.record.data_reason === '404', 'should have set data_reason to 404')
 	})
 
 	it('should process nodata and partial errors as expected', async () => {
@@ -156,7 +158,7 @@ describe('downloadWithChecks', () => {
 			} as TxRecord
 		]
 
-		const results = await downloadWithChecks(testRecords, 30_000) // 30 second timeout
+		const results = await downloadWithChecks(testRecords, 120_000) // the 404 id takes ~95s to exhaust every chunk node
 
 		assert.equal(results.length, 3)
 

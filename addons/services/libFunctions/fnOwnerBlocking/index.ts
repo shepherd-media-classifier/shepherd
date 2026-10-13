@@ -1,14 +1,10 @@
 import pg, { batchInsertFnOwner, ownerToTablename } from './utils/pgClient'
 import { slackLog } from './utils/slackLog'
-import { arGql, ArGqlInterface, GQLUrls } from 'ar-gql'
 import { OwnerTableRecord } from '../../types'
 import { getByteRange } from '../../libs/byte-ranges/byteRanges'
-import { GQLEdgeInterface, GQLError } from 'ar-gql/dist/faces'
-import { gqlTx } from '../../libs/byte-ranges/gqlTx'
+import { GQLEdgeInterface } from 'ar-gql/dist/faces'
 import { updateS3Lists, UpdateItem } from '../../libs/s3-lists/update-lists'
-
-const gql = arGql({ endpointUrl: process.env.GQL_URL_SECONDARY, retries: 3 }) //defaults to goldsky
-const gqlBackup = arGql({ endpointUrl: process.env.GQL_URL, retries: 3 }) //defaults to arweave
+import { min_data_size } from '../../libs/constants'
 
 
 /** the handler will receive 1 page of blocked wallet results. 
@@ -35,36 +31,20 @@ export const handler = async (event: any) => {
 		await Promise.all(inputs.page.map(async ({ node }) => {
 
 			/** skip small files */
-			if (+node.data.size < 1_000) {
+			if (node.data.size !== null && +node.data.size < min_data_size) {
 				console.log(`file too small, size: ${node.data.size}, txid: ${node.id}`)
 				return;
 			}
 
+			/** skip bundles & redstone-oracles. arweave.net 400s on tag `op: NEQ` so no gql filter */
+			if (node.tags.some(t => t.name.toLowerCase() === 'bundle-version' || (t.name.toLowerCase() === 'type' && t.value === 'redstone-oracles'))) return;
+
 			/** build records */
 			const txid = node.id
 			const parent = node.parent?.id || null
-			let parents: string[] | undefined = []
-			const owner = node.owner.address.padEnd(43, ' ') //pad non-arweave addresses to 43
-
-			// loop to find all nested parents
-			if (parent) {
-				let p: string | null = parent
-				do {
-					const p0: string = p
-
-					try {
-						p = (await gqlTx(p0, gql)).parent?.id || null
-					} catch (eOuter: unknown) {
-						console.error(`getParent warning: "${(eOuter as Error).message}" while fetching parent: "${p}" for dataItem: ${txid} using gqlProvider: ${gql.endpointUrl}. Trying gqlBackup now.`)
-						try {
-							p = (await gqlTx(p0, gqlBackup)).parent?.id || null
-						} catch (eInner: unknown) {
-							slackLog(`getParent error: "${(eInner as Error).message}" while fetching parent: ${p0} for dataItem: ${txid} Tried both gql endpoints. ${(eInner as GQLError).cause.gqlError}`)
-						}
-					}
-				} while (p && parents.push(p))
-			}
-			parents = parents.length === 0 ? undefined : parents
+			const parents = undefined
+			let owner = node.owner.address
+			if (owner.length !== 43) owner = (await pg.query(`SELECT owner FROM owners_list WHERE owner_native = $1`, [owner])).rows[0].owner
 
 			/** calculate byte-range */
 			const range = await getByteRange(txid, parent, parents)

@@ -56,7 +56,7 @@ try {
 	console.info(`Fetching tx metadata for ${txid} from ${gqlUrl} ...`)
 	const node = await gql.tx(txid)
 	const meta: GQLEdgeInterface = { cursor: '', node }
-	const [record] = await buildRecords([meta], gql, 'flag-txid', 'flag-txid.ts', gql)
+	const [record] = buildRecords([meta])
 	if (!record) throw new Error(`buildRecords returned no record for ${txid}`)
 
 	// Upload the S3 object with real TxRecord metadata

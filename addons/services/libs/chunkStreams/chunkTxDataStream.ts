@@ -20,7 +20,7 @@ export const chunkTxDataStream = async (
 ): Promise<{ stream: ReadableStream<Uint8Array>, byteRange: ByteRange }> => {
 	const offsets = await getByteRange(txid, parent, parents)
 	if (offsets.start === -1n) {
-		throw new Error(`${chunkTxDataStream.name}: undiscoverable byte-range for txid=${txid} parent=${parent ?? 'null'}`)
+		throw new Error(`${chunkTxDataStream.name}: undiscoverable byte-range (status ${offsets.status ?? 'unknown'}) for txid=${txid} parent=${parent ?? 'null'}`)
 	}
 
 	const dataStart = Number(offsets.dataStart)
@@ -29,7 +29,7 @@ export const chunkTxDataStream = async (
 	console.debug(`${txid} byte range obtained - dataStart:${dataStart}, dataEnd:${dataEnd}, chunkStart:${chunkStart}`)
 
 	//simple case, base tx: no initial bytes to skip.
-	if (parent === null) {
+	if (!offsets.headerLength) {
 		console.debug(`${txid} base tx - returning chunkStream directly`)
 		//n.b. awaits the stream *handle* (factory setup), not the stream data
 		return { stream: await chunkStream(chunkStart, dataEnd, txid, abortSignal), byteRange: offsets }

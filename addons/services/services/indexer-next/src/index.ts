@@ -3,8 +3,8 @@ import knexCreate from '../../../libs/utils/knexCreate'
 import { initLists } from '../../../libs/s3-lists/update-lists'
 import { ownerIngestLoop } from './owner-blocking/owner-ingest'
 import { tipLoop } from './index-by-height'
-import { ingestLoop } from './index-by-ingested_at'
 import { ownerChecks } from './owner-blocking'
+import { feedServer } from './feed/server'
 
 
 /** catch all unhandled server errors */
@@ -52,8 +52,8 @@ while (true) {
 		/** start ingest loops. n.b. never return, have own catch loops */
 		ownerIngestLoop()
 		ownerChecks()
-		tipLoop({})
-		ingestLoop()
+		// tipLoop({})
+		feedServer()
 
 		break;
 	} catch (err: unknown) {
