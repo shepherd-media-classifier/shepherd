@@ -54,6 +54,9 @@ export type Config = {
 	/* gateways to check for blocked data */
 	gw_domains?: Array<string>
 
+	/** HyperBEAM nodes allowed to POST /feed reports: wallet address => name */
+	feed_nodes?: Record<string, string>
+
 	/** disable core services */
 	services: {
 		indexer: boolean
