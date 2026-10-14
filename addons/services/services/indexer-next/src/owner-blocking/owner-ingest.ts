@@ -81,6 +81,9 @@ const latestAddreses = async () => {
 	return addresses
 }
 
+/** survives a failed range, so its inserts are still announced on the retry */
+let unannounced = { inserts: 0, owners: {} as { [owner: string]: number } }
+
 /** ingest the blocked owners' items in blocks `min` to `max` */
 const ingestRangeOrig = async (min: number, max: number) => {
 
@@ -109,10 +112,12 @@ const ingestRangeOrig = async (min: number, max: number) => {
 		for (const owner in lambdaCounts) {
 			if (owner === 'total') continue
 			ingestedOwners[owner] = (ingestedOwners[owner] || 0) + lambdaCounts[owner]
+			unannounced.owners[owner] = (unannounced.owners[owner] || 0) + lambdaCounts[owner]
 		}
 
 		counts.items += page.length
 		counts.inserts += lambdaCounts.total
+		unannounced.inserts += lambdaCounts.total
 	})// end gql.all
 
 	/** output stats for this run */
@@ -124,9 +129,11 @@ const ingestRangeOrig = async (min: number, max: number) => {
 	// lists get updated in fnOwnerBlocking now
 	/** TEMPORARY UNTIL LIST MIGRATION IS COMPLETE */
 	try {
-		if (counts.inserts > 0) {
+		if (unannounced.inserts > 0) {
+			const { inserts, owners: insertedOwners } = unannounced
+			unannounced = { inserts: 0, owners: {} }
 			await lambdaInvokerUpdateTxtLists()
-			slackLog(blockOwnerIngest.name, `added ${counts.inserts} items from owners:`, JSON.stringify(ingestedOwners))
+			slackLog(blockOwnerIngest.name, `added ${inserts} items from owners:`, JSON.stringify(insertedOwners))
 		}
 	} catch (e) {
 		await slackLog(blockOwnerIngest.name, `ERROR in owner-ingest.ts updateTxtLists failed. :warning::warning: NOT RETRYING! :warning::warning: may need to run updateTxtLists manually.`, e)
