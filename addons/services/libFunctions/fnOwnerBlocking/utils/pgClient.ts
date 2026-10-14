@@ -38,8 +38,9 @@ export const batchInsertFnOwner = async <T extends object>(records: T[], tableNa
 	*/
 	const columns = Object.keys(records[0]).map(k => `"${k}"`).join(', ')
 
+	const cnn = await pool.connect()
 	try {
-		await pool.query('BEGIN')
+		await cnn.query('BEGIN')
 		let index = 0
 		const query = `INSERT INTO "${tableName}" (${columns}) `
 			+ `VALUES `
@@ -53,17 +54,19 @@ export const batchInsertFnOwner = async <T extends object>(records: T[], tableNa
 
 		console.debug('values', values)
 
-		const res = await pool.query(query, values) // query is a template string, values is an array
+		const res = await cnn.query(query, values) // query is a template string, values is an array
 
 		console.debug(`batch inserted ${res.rowCount} records`)
 
-		await pool.query('COMMIT')
+		await cnn.query('COMMIT')
 		return res.rowCount;
 	} catch (err: unknown) {
 		const e = err as Error
 		console.error(`pg-error: ${e.name} ${e.message}`)
-		await pool.query('ROLLBACK')
+		await cnn.query('ROLLBACK')
 		throw e
+	} finally {
+		cnn.release()
 	}
 }
 

@@ -1,5 +1,5 @@
 import { slackLog } from './slackLog'
-import { readParamJsonLive, writeParamJsonLive } from './redis-state'
+import { redis } from './redis-state'
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
@@ -41,78 +41,26 @@ export const lambdaInvoker = async (handlerName: string, payload: object, retrie
  * TODO: remove this once fnTemp is removed.
  */
 
-interface FnTempState {
-	isRunning: boolean
-	oneMoreRun: boolean
-	lastRun: number // unix timestamp
-}
-
-const SSM_PARAMETER_NAME = 'fnTemp-state'
-
-const getFnTempState = async () => {
-	try {
-		return await readParamJsonLive(SSM_PARAMETER_NAME) as FnTempState
-	} catch (error) {
-		// Parameter doesn't exist, return default state
-		return { isRunning: false, oneMoreRun: false, lastRun: 0 }
-	}
-}
-
-const setFnTempState = async (state: FnTempState) => writeParamJsonLive(SSM_PARAMETER_NAME, state)
+const FNTEMP_LOCK = 'fnTemp-lock'
+const FNTEMP_REQUESTS = 'fnTemp-requests'
+const FNTEMP_LOCK_TTL = 300_000
 
 /**
- * Dedicated function for fnTemp lambda calls.
- * Prevents multiple simultaneous executions by using an SSM parameter.
- * Handles 4 possible states:
- * - { isRunning: false, oneMoreRun: false } - idle
- * - { isRunning: false, oneMoreRun: true } - idle but should run again  
- * - { isRunning: true, oneMoreRun: false } - currently running
- * - { isRunning: true, oneMoreRun: true } - running with pending run
+ * Dedicated function for fnTemp calls, shared across services via redis.
+ * Every call bumps the request counter. Whoever holds the lock reruns fnTemp until no new requests arrived during its run.
  */
 export const lambdaInvokerFnTemp = async () => {
-	// Get the current state
-	let currentState = await getFnTempState()
-	if (currentState.isRunning && currentState.lastRun < Date.now() - 300_000) { //in case the service running ended unexpectedly, reset the state
-		currentState = { isRunning: false, oneMoreRun: false, lastRun: 0 }
-	}
-	console.info('ENTRY', lambdaInvokerFnTemp.name, `DEBUG`, JSON.stringify(currentState))
-
-	do {
+	await redis.incr(FNTEMP_REQUESTS)
+	while (await redis.set(FNTEMP_LOCK, Date.now(), 'PX', FNTEMP_LOCK_TTL, 'NX')) {
+		const seen = await redis.get(FNTEMP_REQUESTS)
+		const heartbeat = setInterval(() => redis.pexpire(FNTEMP_LOCK, FNTEMP_LOCK_TTL).catch(console.error), 60_000)
 		try {
-			// Handle the 4 possible states
-			if (!currentState.isRunning && !currentState.oneMoreRun) {
-				console.info('// State: idle - set to running and invoke')
-				await setFnTempState({ isRunning: true, oneMoreRun: false, lastRun: Date.now() })
-				await lambdaInvoker('fnTemp', {}, 0)
-				currentState = await getFnTempState()
-				currentState.isRunning = false
-				await setFnTempState(currentState)
-			} else if (!currentState.isRunning && currentState.oneMoreRun) {
-				console.info('// State: idle but should run again - set to running and invoke')
-				await setFnTempState({ isRunning: true, oneMoreRun: false, lastRun: Date.now() })
-				await lambdaInvoker('fnTemp', {}, 0)
-				currentState = await getFnTempState()
-				currentState.isRunning = false
-				await setFnTempState(currentState)
-			} else if (currentState.isRunning && !currentState.oneMoreRun) {
-				console.info('// State: currently running - mark that another run is needed')
-				await setFnTempState({ isRunning: true, oneMoreRun: true, lastRun: currentState.lastRun })
-				return // Exit without invoking, let the running instance handle it
-			} else if (currentState.isRunning && currentState.oneMoreRun) {
-				console.info('// State: running with pending run - do nothing, already queued')
-				return
-			}
-		} catch (e) {
-			if (e instanceof Error && e.name === 'TooManyUpdates') {
-				console.info('// Error - retry', e)
-				await sleep(100)
-				currentState = await getFnTempState()
-				continue
-			}
-			console.info('// Error - throw', e)
-			throw e
+			await lambdaInvoker('fnTemp', {}, 0)
+		} finally {
+			clearInterval(heartbeat)
+			await redis.del(FNTEMP_LOCK)
 		}
-		currentState = await getFnTempState()
-	} while (currentState.oneMoreRun)
+		if (await redis.get(FNTEMP_REQUESTS) === seen) return
+	}
+	console.info(lambdaInvokerFnTemp.name, 'already running, request queued')
 }
-
