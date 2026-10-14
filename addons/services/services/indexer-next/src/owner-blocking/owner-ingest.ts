@@ -3,7 +3,7 @@ import { handler as fnOwnerBlockingHandler } from '../../../../libFunctions/fnOw
 import pool from '../../../../libs/utils/pgClient'
 import { s3GetObject, s3HeadObject } from '../../../../libs/utils/s3-services'
 import { slackLog } from '../../../../libs/utils/slackLog'
-import { lambdaInvokerFnTemp } from '../../../../libs/utils/lambda-invoker'
+import { lambdaInvokerUpdateTxtLists } from '../../../../libs/utils/lambda-invoker'
 import { GQLError } from 'ar-gql/dist/faces'
 import { gqlHeight as gqlHeightOrig } from '../index-by-height/gql-height'
 
@@ -125,11 +125,11 @@ const ingestRangeOrig = async (min: number, max: number) => {
 	/** TEMPORARY UNTIL LIST MIGRATION IS COMPLETE */
 	try {
 		if (counts.inserts > 0) {
-			await lambdaInvokerFnTemp()
+			await lambdaInvokerUpdateTxtLists()
 			slackLog(blockOwnerIngest.name, `added ${counts.inserts} items from owners:`, JSON.stringify(ingestedOwners))
 		}
 	} catch (e) {
-		await slackLog(blockOwnerIngest.name, `ERROR in owner-ingest.ts fnTemp failed. :warning::warning: NOT RETRYING! :warning::warning: may need to run fnTemp manually.`, e)
+		await slackLog(blockOwnerIngest.name, `ERROR in owner-ingest.ts updateTxtLists failed. :warning::warning: NOT RETRYING! :warning::warning: may need to run updateTxtLists manually.`, e)
 	}
 }
 

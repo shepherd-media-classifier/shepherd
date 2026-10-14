@@ -8,7 +8,7 @@ import { UpdateItem, updateS3Lists } from '../../../libs/s3-lists/update-lists'
 import { updateAddresses } from '../../../libs/s3-lists/update-addresses'
 import { OwnersListRecord } from '../../../types'
 import { mergeRulesObject } from './utils/merge-rules-object'
-import { lambdaInvokerFnTemp } from '../../../libs/utils/lambda-invoker'
+import { lambdaInvokerUpdateTxtLists } from '../../../libs/utils/lambda-invoker'
 
 
 const knex = dbConnection()
@@ -81,9 +81,9 @@ export const processFlagged = async (
 
 	/** TEMPORARY UNTIL LIST MIGRATION IS COMPLETE */
 	try {
-		await lambdaInvokerFnTemp()
+		await lambdaInvokerUpdateTxtLists()
 	} catch (e) {
-		await slackLog(txid, `ERROR in flagged.ts fnTemp failed '${(e as Error).message}'. :warning::warning: NOT ROLLING BACK! :warning::warning: may need to run fnTemp manually.`, e)
+		await slackLog(txid, `ERROR in flagged.ts updateTxtLists failed '${(e as Error).message}'. :warning::warning: NOT ROLLING BACK! :warning::warning: may need to run updateTxtLists manually.`, e)
 	}
 
 	/** 2. owner update */

@@ -19,7 +19,7 @@ WORKDIR /app/libFunctions/fnInitLists
 RUN npm ci --omit=dev
 WORKDIR /app/libFunctions/fnOwnerBlocking
 RUN npm ci --omit=dev
-WORKDIR /app/libFunctions/fnTemp
+WORKDIR /app/libFunctions/updateTxtLists
 RUN npm ci --omit=dev
 
 FROM base AS indexer-next

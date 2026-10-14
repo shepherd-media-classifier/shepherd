@@ -7,8 +7,8 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 const getHandler = async (name: string): Promise<(event: any) => Promise<any>> => {
 	switch (name) {
 		case 'fnInitLists': return (await import('../../libFunctions/fnInitLists/index')).handler
-		case 'fnTemp': return (await import('../../libFunctions/fnTemp/index')).handler
-		default: throw new Error(`Unknown handler: '${name}'. Available: fnInitLists, fnTemp`)
+		case 'updateTxtLists': return (await import('../../libFunctions/updateTxtLists/index')).handler
+		default: throw new Error(`Unknown handler: '${name}'. Available: fnInitLists, updateTxtLists`)
 	}
 }
 
@@ -36,31 +36,26 @@ export const lambdaInvoker = async (handlerName: string, payload: object, retrie
 	}
 }
 
-/** 
- * everything below is temporary for fnTemp lambda.
- * TODO: remove this once fnTemp is removed.
- */
-
-const FNTEMP_LOCK = 'fnTemp-lock'
-const FNTEMP_REQUESTS = 'fnTemp-requests'
-const FNTEMP_LOCK_TTL = 300_000
+const TXT_LISTS_LOCK = 'updateTxtLists-lock'
+const TXT_LISTS_REQUESTS = 'updateTxtLists-requests'
+const TXT_LISTS_LOCK_TTL = 300_000
 
 /**
- * Dedicated function for fnTemp calls, shared across services via redis.
- * Every call bumps the request counter. Whoever holds the lock reruns fnTemp until no new requests arrived during its run.
+ * Dedicated function for updateTxtLists calls, shared across services via redis.
+ * Every call bumps the request counter. Whoever holds the lock reruns updateTxtLists until no new requests arrived during its run.
  */
-export const lambdaInvokerFnTemp = async () => {
-	await redis.incr(FNTEMP_REQUESTS)
-	while (await redis.set(FNTEMP_LOCK, Date.now(), 'PX', FNTEMP_LOCK_TTL, 'NX')) {
-		const seen = await redis.get(FNTEMP_REQUESTS)
-		const heartbeat = setInterval(() => redis.pexpire(FNTEMP_LOCK, FNTEMP_LOCK_TTL).catch(console.error), 60_000)
+export const lambdaInvokerUpdateTxtLists = async () => {
+	await redis.incr(TXT_LISTS_REQUESTS)
+	while (await redis.set(TXT_LISTS_LOCK, Date.now(), 'PX', TXT_LISTS_LOCK_TTL, 'NX')) {
+		const seen = await redis.get(TXT_LISTS_REQUESTS)
+		const heartbeat = setInterval(() => redis.pexpire(TXT_LISTS_LOCK, TXT_LISTS_LOCK_TTL).catch(console.error), 60_000)
 		try {
-			await lambdaInvoker('fnTemp', {}, 0)
+			await lambdaInvoker('updateTxtLists', {}, 0)
 		} finally {
 			clearInterval(heartbeat)
-			await redis.del(FNTEMP_LOCK)
+			await redis.del(TXT_LISTS_LOCK)
 		}
-		if (await redis.get(FNTEMP_REQUESTS) === seen) return
+		if (await redis.get(TXT_LISTS_REQUESTS) === seen) return
 	}
-	console.info(lambdaInvokerFnTemp.name, 'already running, request queued')
+	console.info(lambdaInvokerUpdateTxtLists.name, 'already running, request queued')
 }

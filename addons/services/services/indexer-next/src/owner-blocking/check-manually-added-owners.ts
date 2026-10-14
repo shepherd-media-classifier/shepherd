@@ -132,6 +132,6 @@ export async function checkForManuallyModifiedOwners() {
 		await queueBlockOwner(owner, 'manual')
 	}
 
-	//TEMP, return true to run fnTemp
+	//return true to run updateTxtLists
 	return newWhitelistedOwnersCount > 0 //it's just this, nothing else run here
 }

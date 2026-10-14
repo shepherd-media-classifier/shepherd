@@ -1,15 +1,15 @@
 /**
- * Manually run a lambda handler (fnInitLists or fnTemp).
+ * Manually run a lambda handler (fnInitLists or updateTxtLists).
  *
  * Usage:
  *   npx tsx tools/run-handler.ts fnInitLists
- *   npx tsx tools/run-handler.ts fnTemp
+ *   npx tsx tools/run-handler.ts updateTxtLists
  *
  * Required env vars: DB_HOST, LISTS_BUCKET, REDIS_HOST (+ AWS S3 credentials)
  */
 import '../tests/_import-test-env-vars'
 import { handler as fnInitLists } from '../libFunctions/fnInitLists/index'
-import { handler as fnTemp } from '../libFunctions/fnTemp/index'
+import { handler as updateTxtLists } from '../libFunctions/updateTxtLists/index'
 //make it stop
 import pgClient from '../libs/utils/pgClient'
 import { redis } from '../libs/utils/redis-state'
@@ -18,7 +18,7 @@ import { redis } from '../libs/utils/redis-state'
 
 const handlers: Record<string, (event: any) => Promise<any>> = {
 	fnInitLists,
-	fnTemp,
+	updateTxtLists,
 }
 
 const name = process.argv[2]
