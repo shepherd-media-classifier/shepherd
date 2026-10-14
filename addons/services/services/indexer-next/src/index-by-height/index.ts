@@ -22,7 +22,7 @@ export const tipLoop = async (
 	let pass1 = (await pool.query(`SELECT value FROM states WHERE pname = 'indexer_pass1'`)).rows[0].value
 	let pass2 = (await pool.query(`SELECT value FROM states WHERE pname = 'indexer_pass2'`)).rows[0].value
 	if (pass2 === 0) {
-		pass1 = pass2 = (await gqlHeight(GQL_URL)) - 4 - 30 // seed: 30 block lookback for goldsky lag at cutover/migration
+		pass1 = pass2 = (await gqlHeight(GQL_URL)) - 4 - 30 // seed: 30 block lookback at cutover/migration
 		await pool.query(`UPDATE states SET value = $1 WHERE pname IN ('indexer_pass1', 'indexer_pass2')`, [pass1])
 	}
 	do {

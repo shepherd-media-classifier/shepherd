@@ -2,29 +2,34 @@ import { arGql } from 'ar-gql'
 import { handler as fnOwnerBlockingHandler } from '../../../../libFunctions/fnOwnerBlocking/index'
 import pool from '../../../../libs/utils/pgClient'
 import { s3GetObject, s3HeadObject } from '../../../../libs/utils/s3-services'
-import { performance } from 'perf_hooks'
 import { slackLog } from '../../../../libs/utils/slackLog'
 import { lambdaInvokerFnTemp } from '../../../../libs/utils/lambda-invoker'
 import { GQLError } from 'ar-gql/dist/faces'
+import { gqlHeight as gqlHeightOrig } from '../index-by-height/gql-height'
 
 
 if (!process.env.LISTS_BUCKET) throw new Error('missing env var, LISTS_BUCKET')
 const LISTS_BUCKET = process.env.LISTS_BUCKET!
 if (!process.env.GQL_URL) throw new Error('missing env var: GQL_URL')
-const gql = arGql({ endpointUrl: process.env.GQL_URL, retries: 3 }) //defaults to arweave, addresses.txt holds native forms for its `owners:`
+const GQL_URL = process.env.GQL_URL
+const gql = arGql({ endpointUrl: GQL_URL, retries: 3 }) //defaults to arweave, addresses.txt holds native forms for its `owners:`
 
+/** blocks behind the tip, so late-indexed bundle items are in by the time a block is queried */
+const LAG = 20
+/** extra blocks behind LAG when seeding the position, to cover the cutover */
+const LOOKBACK = 30
+
+/** `block` not `ingested_at`: HyperBEAM gateways ignore `ingested_at` and return everything */
 const ingestQuery = `
-query($cursor: String, $owners: [String!], $minAt: Int, $maxAt: Int) {
+query($cursor: String, $owners: [String!], $min: Int, $max: Int) {
 	transactions(
 		# your query parameters
 		owners: $owners
 
-		ingested_at: {
-			min: $minAt,
-			max: $maxAt,
+		block: {
+			min: $min,
+			max: $max,
 		}
-		#remove pending results
-		sort: HEIGHT_DESC
 
 		# standard template below
 		after: $cursor
@@ -48,108 +53,109 @@ query($cursor: String, $owners: [String!], $minAt: Int, $maxAt: Int) {
 `
 
 
-const getOwnerBlockingPosition = async () => (await pool.query(`SELECT value FROM states WHERE pname = 'owner_ingest'`)).rows[0].value
+/** the last block height processed. 0 means seed from the tip */
+const getOwnerBlockingPosition = async (): Promise<number> => (await pool.query(`SELECT value FROM states WHERE pname = 'owner_ingest'`)).rows[0].value
+
+const setOwnerBlockingPosition = async (height: number) => pool.query(`UPDATE states SET value = $1 WHERE pname = 'owner_ingest'`, [height])
 
 const getETag = async () => (await s3HeadObject(process.env.LISTS_BUCKET!, 'addresses.txt')).ETag!
 
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+const sleepOrig = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
-export const blockOwnerIngest = async (loop: boolean = true) => {
-	const lastMax = await getOwnerBlockingPosition()
-	console.debug('owner_ingest position', lastMax)
+let addresses = {
+	owners: [] as string[],
+	eTag: '',
+}
 
-	let addresses = {
-		owners: [] as string[],
-		eTag: '',
-	}
-
-	const latestAddreses = async () => {
-		const eTag = await getETag()
-		if (addresses.eTag !== eTag) {
-			const owners = (await s3GetObject(LISTS_BUCKET, 'addresses.txt')).split('\n')
-			owners.pop() // remove last empty line
-			addresses = {
-				owners,
-				eTag,
-			}
-			console.info(blockOwnerIngest.name, 'addresses cache updated', JSON.stringify(addresses))
+const latestAddreses = async () => {
+	const eTag = await getETag()
+	if (addresses.eTag !== eTag) {
+		const owners = (await s3GetObject(LISTS_BUCKET, 'addresses.txt')).split('\n')
+		owners.pop() // remove last empty line
+		addresses = {
+			owners,
+			eTag,
 		}
-		return addresses
+		console.info(blockOwnerIngest.name, 'addresses cache updated', JSON.stringify(addresses))
+	}
+	return addresses
+}
+
+/** ingest the blocked owners' items in blocks `min` to `max` */
+const ingestRangeOrig = async (min: number, max: number) => {
+
+	/** init stat outputs */
+	const counts = { page: 0, items: 0, inserts: 0 }
+	const ingestedOwners: { [owner: string]: number } = {}
+
+	/** get the very latest owners */
+	const { owners } = await latestAddreses()
+
+	/** `owners: []` would match every owner */
+	if (owners.length === 0) return console.info(blockOwnerIngest.name, `no blocked owners, skipping blocks ${min}-${max}`)
+
+	const vars = {
+		owners: owners.map(o => o.trim()), // some addresses have trailing spaces, e.g. eth signers
+		min,
+		max,
 	}
 
-	const interval = 30 // seconds
-	const sleepMs = 1_000
+	await gql.all(ingestQuery, vars, async (page) => {
+		const pageNumber = ++counts.page
+		console.info(blockOwnerIngest.name, 'processing page', pageNumber)
 
-	const maxAt = lastMax + interval
-	const minAt = lastMax + 1
+		/** invoke handler directly */
+		const lambdaCounts: { [owner: string]: number; total: number } = await fnOwnerBlockingHandler({ page, pageNumber })
+		for (const owner in lambdaCounts) {
+			if (owner === 'total') continue
+			ingestedOwners[owner] = (ingestedOwners[owner] || 0) + lambdaCounts[owner]
+		}
 
-	let vars = {
-		owners: [] as string[],
-		minAt,
-		maxAt,
+		counts.items += page.length
+		counts.inserts += lambdaCounts.total
+	})// end gql.all
+
+	/** output stats for this run */
+	console.info(
+		blockOwnerIngest.name, `completed processing ${JSON.stringify({ min, max, counts })}`,
+		JSON.stringify({ ingestedOwners }),
+	)
+
+	// lists get updated in fnOwnerBlocking now
+	/** TEMPORARY UNTIL LIST MIGRATION IS COMPLETE */
+	try {
+		if (counts.inserts > 0) {
+			await lambdaInvokerFnTemp()
+			slackLog(blockOwnerIngest.name, `added ${counts.inserts} items from owners:`, JSON.stringify(ingestedOwners))
+		}
+	} catch (e) {
+		await slackLog(blockOwnerIngest.name, `ERROR in owner-ingest.ts fnTemp failed. :warning::warning: NOT RETRYING! :warning::warning: may need to run fnTemp manually.`, e)
 	}
+}
+
+export const blockOwnerIngest = async (
+	/* dependency injection for test */
+	{
+		loop = true,
+		sleep = sleepOrig,
+		gqlHeight = gqlHeightOrig,
+		ingestRange = ingestRangeOrig,
+	} = {},
+) => {
+	let position = await getOwnerBlockingPosition()
+	if (position === 0) {
+		position = (await gqlHeight(GQL_URL)) - LAG - LOOKBACK
+		await setOwnerBlockingPosition(position)
+	}
+	console.debug('owner_ingest position', position)
+
 	do {
-
-		/** update ingest boundaries before next run */
-		let minAt = vars.maxAt + 1
-		let maxAt = minAt + interval
-
-		/** init stat outputs */
-		const counts = { page: 0, items: 0, inserts: 0 }
-		const ingestedOwners: { [owner: string]: number } = {}
-
-		/** wait until next interval to run */
-
-		const t0 = performance.now()
-		while (Date.now() < maxAt * 1000) {
-			await sleep(sleepMs)
+		const target = (await gqlHeight(GQL_URL)) - LAG
+		if (position < target) {
+			await ingestRange(position + 1, target)
+			await setOwnerBlockingPosition(position = target)
 		}
-		const t1 = performance.now()
-		console.info(blockOwnerIngest.name, `begin query after waiting ${(t1 - t0).toFixed(0)}ms`)
-
-		/** get the very latest owners */
-		const { owners } = await latestAddreses()
-		vars = {
-			owners: owners.map(o => o.trim()), // some addresses have trailing spaces, e.g. eth signers
-			minAt,
-			maxAt,
-		}
-
-		await gql.all(ingestQuery, vars, async (page) => {
-			const pageNumber = ++counts.page
-			console.info(blockOwnerIngest.name, 'processing page', pageNumber)
-
-			/** invoke handler directly */
-			const lambdaCounts: { [owner: string]: number; total: number } = await fnOwnerBlockingHandler({ page, pageNumber })
-			for (const owner in lambdaCounts) {
-				if (owner === 'total') continue
-				ingestedOwners[owner] = (ingestedOwners[owner] || 0) + lambdaCounts[owner]
-			}
-
-			counts.items += page.length
-			counts.inserts += lambdaCounts.total
-		})// end gql.all
-
-		/** output stats for this run */
-		console.info(
-			blockOwnerIngest.name, `completed processing ${JSON.stringify({ minAt, maxAt, counts })}`,
-			JSON.stringify({ ingestedOwners }),
-		)
-
-		// lists get updated in fnOwnerBlocking now
-		/** TEMPORARY UNTIL LIST MIGRATION IS COMPLETE */
-		try {
-			if (counts.inserts > 0) {
-				await lambdaInvokerFnTemp()
-				slackLog(blockOwnerIngest.name, `added ${counts.inserts} items from owners:`, JSON.stringify(ingestedOwners))
-			}
-		} catch (e) {
-			await slackLog(blockOwnerIngest.name, `ERROR in owner-ingest.ts fnTemp failed. :warning::warning: NOT RETRYING! :warning::warning: may need to run fnTemp manually.`, e)
-		}
-
-		/** update state */
-		await pool.query(`UPDATE states SET value = $1 WHERE pname = 'owner_ingest'`, [vars.maxAt])
-
+		await sleep(30_000)
 	} while (loop)
 }// EO blockOwnerIngest
 
@@ -163,8 +169,9 @@ export const ownerIngestLoop = async () => {
 				let cause = 'unprintable?'
 				try { cause = JSON.stringify(e.cause) } catch (_e) { cause = String(e.cause) }
 				const printStack = (e instanceof GQLError) ? '' : `\n${e.stack}`
-				await slackLog('owner-ingest', `FATAL error ❌ ${e.name}:${e.message} \ncause ${cause} ${printStack} \nrestarting in 30 secs...`)
-				await sleep(30_000)
+				const source = (e instanceof GQLError) ? ` from ${new URL(GQL_URL).host}` : ''
+				await slackLog('owner-ingest', `FATAL error ❌ ${e.name}:${e.message}${source} \ncause ${cause} ${printStack} \nrestarting in 30 secs...`)
+				await sleepOrig(30_000)
 			} else {
 				throw e;
 			}

@@ -32,7 +32,7 @@ export const ownerChecks = async () => {
 			const e = err as Error
 			await slackLog(
 				ownerChecks.name,
-				`Fatal error ❌ ${e.name}:${e.message}\n`,
+				`Fatal error ❌ ${e.name}:${e.message}${e.name === 'GQLError' ? ` from ${new URL(process.env.GQL_URL!).host}` : ''}\n`,
 				err,
 				'\nrestarting in 30 seconds...'
 			)
