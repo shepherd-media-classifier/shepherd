@@ -1,5 +1,6 @@
 import { checkServerTxids } from "./txids-checkHeads"
-import { FolderName } from "../types"
+import { getBlockedTxids } from "./txids-cached"
+import { ListName } from "../types"
 import { MessageType } from ".."
 import { slackLog } from "../../../../libs/utils/slackLog"
 import { addonTxsTableNames } from '../../../../libs/utils/addon-tablenames'
@@ -63,7 +64,7 @@ let _running: { [key: string]: boolean } = {}
 /** 
  * txid checks 
  */
-export const checkTxids = async (key: FolderName) => {
+export const checkTxids = async (key: ListName) => {
 	/** short-circuit */
 	if (gwDomains.length === 0) {
 		console.info(checkTxids.name, key, 'no gw domains configured, exiting.', gwDomains)
@@ -78,7 +79,8 @@ export const checkTxids = async (key: FolderName) => {
 	console.info(checkTxids.name, key, `starting cronjob...`, JSON.stringify({ gwDomains, _running }))
 	try {
 
-		await Promise.all(gwDomains.map(async (gwDomain) => checkServerTxids(gwDomain, key)))
+		const txids = await getBlockedTxids(key)
+		await Promise.all(gwDomains.map(async (gwDomain) => checkServerTxids(gwDomain, key, txids)))
 
 		//TODO: might be timeouts to catch here?
 
@@ -89,10 +91,10 @@ export const checkTxids = async (key: FolderName) => {
 
 /** txid & alarm entrypoints after process event handlers */
 
-setInterval(() => checkTxids('flagged/'), FLAGGED_INTERVAL)
-setInterval(() => checkTxids('owners/'), OWNERS_INTERVAL)
-checkTxids('owners/') //start early
-const addonKeys = (await addonTxsTableNames()).map(t => `${t.split('_')[0]}/`) as `${string}/`[]
+setInterval(() => checkTxids('txidflagged.txt'), FLAGGED_INTERVAL)
+setInterval(() => checkTxids('txidowners.txt'), OWNERS_INTERVAL)
+checkTxids('txidowners.txt') //start early
+const addonKeys = (await addonTxsTableNames()).map(t => `${t.split('_')[0]}/txids.txt`) as `${string}/txids.txt`[]
 console.info(JSON.stringify({ addonKeys }))
 addonKeys.map(key => setInterval(() => checkTxids(key), DNSR_INTERVAL))
 

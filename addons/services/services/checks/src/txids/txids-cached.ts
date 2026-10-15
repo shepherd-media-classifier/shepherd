@@ -1,103 +1,15 @@
-import { initTxidsCache, updateTxidsCache } from "../../../../libs/s3-lists/read-lists"
-import { UniqTxidArray } from '../../../../libs/s3-lists/ram-lists'
-import { FolderName } from "../types"
-import { getLastModified } from "../../../../libs/s3-lists/update-lists"
+import { s3GetObjectWebStream } from '../../../../libs/utils/s3-services'
+import { readlineWeb } from '../../../../libs/utils/webstream-utils'
+import { ListName } from '../types'
 
 
-
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
-
-
-interface TxidCache {
-	lastModified: number
-	txids: UniqTxidArray | undefined
-	inProgress: boolean
-}
-const _txidCaches: { [key: string]: TxidCache } = {}
-
-/** setInterval callback to check for list updates */
-export const updateTxidsCacheInterval = async (folder: FolderName) => {
-
-	if (_txidCaches[folder].inProgress) return console.info(updateTxidsCacheInterval.name, folder, 'update already in progress');
-
-	const lastModified = await getLastModified(folder)
-	const current = _txidCaches[folder].lastModified
-
-	if (lastModified > current) {
-		if (_txidCaches[folder].inProgress) return console.info(updateTxidsCacheInterval.name, folder, 'update already in progress');
-		_txidCaches[folder].inProgress = true
-
-		//keep this log
-		console.info('DEBUG', updateTxidsCacheInterval.name, folder, 'updating cache...', JSON.stringify({ lastModified, current }))
-		const latest = await updateTxidsCache({
-			listdir: folder,
-			previousModified: _txidCaches[folder].lastModified,
-			txidsCache: _txidCaches[folder].txids!,
-		})
-		_txidCaches[folder].lastModified = latest.lastModified
-
-		_txidCaches[folder].inProgress = false
-	} else {
-		console.debug('DEBUG', updateTxidsCacheInterval.name, folder, 'no new updates.', JSON.stringify({ lastModified, current }))
-	}
-}
-
-export const getBlockedTxids = async (folder: FolderName) => {
-
-	const thisModified = await getLastModified(folder)
-	console.debug(getBlockedTxids.name, JSON.stringify({ folder, last_modified: thisModified }))
-
-	/** init empty */
-	if (!_txidCaches[folder]) {
-		_txidCaches[folder] = { lastModified: 0, txids: undefined, inProgress: false }
-	}
-
-	/** short-circuit */
-	if (thisModified === _txidCaches[folder].lastModified) {
-		console.info(getBlockedTxids.name, folder, 'returning cache')
-		return _txidCaches[folder].txids
-	}
-
-	/** just one running update is allowed/required */
-	if (_txidCaches[folder].inProgress) {
-		console.info(getBlockedTxids.name, folder, 'waiting for cache update as inProgress')
-		while (_txidCaches[folder].inProgress) {
-			await sleep(100) //wait for new cache
-		}
-		console.info(getBlockedTxids.name, folder, 'returning cache')
-		return _txidCaches[folder].txids
-	}
-	_txidCaches[folder].inProgress = true
-
-	/** create/update cache */
+/** the txids in a list file, streamed straight from minio */
+export const getBlockedTxids = async (list: ListName) => {
 	const t0 = performance.now()
-
-
-	if (_txidCaches[folder].txids === undefined) {
-		console.info(getBlockedTxids.name, folder, 'create new cache...')
-		//run init txids
-		const { txids, lastModified } = await initTxidsCache(folder)
-		_txidCaches[folder] = { txids, lastModified, inProgress: false }
-		setInterval(() => updateTxidsCacheInterval(folder), 10_000)
-	} else {
-		//run update on existing UniqTxidArray
-		console.info(getBlockedTxids.name, folder, 'update cache...')
-		const { lastModified } = await updateTxidsCache({
-			txidsCache: _txidCaches[folder].txids,
-			listdir: folder,
-			previousModified: _txidCaches[folder].lastModified,
-		})
-		_txidCaches[folder].lastModified = lastModified
+	const txids: string[] = []
+	for await (const line of readlineWeb(await s3GetObjectWebStream(process.env.LISTS_BUCKET!, list))) {
+		if (line) txids.push(line)
 	}
-
-
-	const t1 = performance.now()
-	console.info(getBlockedTxids.name, folder, `fetched ${_txidCaches[folder].txids?.getTxids().length} cached txids in ${(t1 - t0).toFixed(0)}ms.`)
-
-	_txidCaches[folder].inProgress = false
-	return _txidCaches[folder].txids
+	console.info(getBlockedTxids.name, list, `fetched ${txids.length} txids in ${(performance.now() - t0).toFixed(0)}ms.`)
+	return txids
 }
-
-// getBlockedTxids('flagged/')
-// getBlockedTxids('owners/')
-
