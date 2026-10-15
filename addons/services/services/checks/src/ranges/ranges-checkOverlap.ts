@@ -1,11 +1,10 @@
-import { ByteRange, getBlockedRanges } from './ranges-cachedBlocked'
+import { ByteRange } from './ranges-cachedBlocked'
 import { performance } from 'perf_hooks'
 import { checkReachable } from '../checkReachable'
 import { unreachableTimedout, setUnreachable } from '../event-unreachable'
 import { Http_Api_Node } from '../../../../libs/utils/update-range-nodes'
 import { MessageType } from '..'
 import { getServerAlarmsIPC } from '../ipc-getAlarms'
-import { FolderName } from '../types'
 
 
 
@@ -17,7 +16,7 @@ const rangesOverlap = (rangeA: [number, number], rangeB: [number, number]) => {
 	return (rangeA[0] < rangeB[1] && rangeB[0] < rangeA[1])
 }
 
-export const checkServerRanges = async (item: Http_Api_Node, listdir: FolderName = 'list/') => {
+export const checkServerRanges = async (item: Http_Api_Node, blockedRanges: ByteRange[]) => {
 	/** check if server reachable */
 	if (!unreachableTimedout(item.name)) {
 		console.info(`${item.name} is in unreachable timeout`)
@@ -49,9 +48,7 @@ export const checkServerRanges = async (item: Http_Api_Node, listdir: FolderName
 			serverRanges.push([start, end])
 		}
 
-		/** get blocked ranges */
-		const blockedRanges = await getBlockedRanges(listdir)
-		console.debug('DEBUG', `number of ranges ${((await blockedRanges!.getRanges()).length)}`)
+		console.debug('DEBUG', `number of ranges ${blockedRanges.length}`)
 
 		/* check existing alarms */
 		console.info(checkServerRanges.name, item.name, 'begin check existing alarms...')
@@ -119,7 +116,7 @@ export const checkServerRanges = async (item: Http_Api_Node, listdir: FolderName
 			const m0 = performance.now()
 
 			/** check if part of this data_sync_record should be blocked */
-			const newAlarm = (await blockedRanges!.getRanges()).some(blockedRange => {
+			const newAlarm = blockedRanges.some(blockedRange => {
 				const notblocked = rangesOverlap([start, end], blockedRange)
 				if (notblocked) {
 					numNotBlocked++
