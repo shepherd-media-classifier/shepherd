@@ -37,7 +37,7 @@ export const lambdaInvoker = async (handlerName: string, payload: object, retrie
 
 const TXT_LISTS_LOCK = 'updateTxtLists-lock'
 const TXT_LISTS_REQUESTS = 'updateTxtLists-requests'
-const TXT_LISTS_LOCK_TTL = 300_000
+const TXT_LISTS_LOCK_TTL = 900_000 //fixed, well above a normal run, so a hung run can't hold the lock forever
 
 /**
  * Dedicated function for updateTxtLists calls, shared across services via redis.
@@ -47,11 +47,9 @@ export const lambdaInvokerUpdateTxtLists = async () => {
 	await redis.incr(TXT_LISTS_REQUESTS)
 	while (await redis.set(TXT_LISTS_LOCK, Date.now(), 'PX', TXT_LISTS_LOCK_TTL, 'NX')) {
 		const seen = await redis.get(TXT_LISTS_REQUESTS)
-		const heartbeat = setInterval(() => redis.pexpire(TXT_LISTS_LOCK, TXT_LISTS_LOCK_TTL).catch(console.error), 60_000)
 		try {
 			await lambdaInvoker('updateTxtLists', {}, 0)
 		} finally {
-			clearInterval(heartbeat)
 			await redis.del(TXT_LISTS_LOCK)
 		}
 		if (await redis.get(TXT_LISTS_REQUESTS) === seen) return
