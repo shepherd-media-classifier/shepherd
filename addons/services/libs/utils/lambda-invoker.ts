@@ -6,9 +6,8 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 /** lazy-load handlers to avoid circular dependency (lambdas import from libs/) */
 const getHandler = async (name: string): Promise<(event: any) => Promise<any>> => {
 	switch (name) {
-		case 'fnInitLists': return (await import('../../libFunctions/fnInitLists/index')).handler
 		case 'updateTxtLists': return (await import('../../libFunctions/updateTxtLists/index')).handler
-		default: throw new Error(`Unknown handler: '${name}'. Available: fnInitLists, updateTxtLists`)
+		default: throw new Error(`Unknown handler: '${name}'. Available: updateTxtLists`)
 	}
 }
 
