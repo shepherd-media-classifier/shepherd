@@ -108,7 +108,7 @@ export const handler = async (event: any) => {
 		flaggedProcess(),
 		...ownerTablenames.map(ownerProcessing),
 		...addonTablenames.map(tablename =>
-			processAddonTable({ tablename, LISTS_BUCKET, highWaterMark, ranges }).then(c => count += c)
+			processAddonTable({ tablename, LISTS_BUCKET, highWaterMark }).then(c => count += c)
 		)
 	])
 
