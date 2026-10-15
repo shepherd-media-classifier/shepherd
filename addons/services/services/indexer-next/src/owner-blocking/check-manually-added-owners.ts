@@ -1,11 +1,7 @@
-import { PassThrough, Transform } from 'node:stream'
 import { queueBlockOwner } from '../../../../libs/block-owner/owner-blocking'
 import { createOwnerTable, ownerToOwnerTablename } from '../../../../libs/block-owner/owner-table-utils'
-import { UpdateItem, updateS3Lists } from '../../../../libs/s3-lists/update-lists'
 import { updateAddresses } from '../../../../libs/s3-lists/update-addresses'
 import pool from '../../../../libs/utils/pgClient'
-import QueryStream from 'pg-query-stream'
-import { finished } from 'node:stream/promises'
 
 
 export async function checkForManuallyModifiedOwners() {
@@ -70,57 +66,10 @@ export async function checkForManuallyModifiedOwners() {
 
 	console.debug(checkForManuallyModifiedOwners.name, 'modified whitelisted owners', JSON.stringify(newWhitelistedOwnersCount))
 
-	if (newWhitelistedOwnersCount > 0) {
-		await Promise.all(newWhitelistedOwners.rows.map(async ({ owner }) => {
-			const tablename = ownerToOwnerTablename(owner)
-
-			/** stream the table as remove ops for s3 lists */
-			const cnn = await pool.connect()
-			const query = `SELECT txid, byte_start, byte_end FROM "${tablename}"`
-			const stream = new QueryStream(query, [], { highWaterMark: 200 })
-			cnn.query(stream)
-
-			const transformed = new Transform({
-				objectMode: true,
-				transform({ txid, byte_start, byte_end }, encoding, callback) {
-					transformed.push({
-						txid,
-						range: [Number(byte_start), Number(byte_end)],
-						op: 'remove',
-					} as UpdateItem)
-					callback()
-				}
-			})
-
-			/** tee for owners/ and list/ */
-			const tee1 = new PassThrough({ objectMode: true })
-			const tee2 = new PassThrough({ objectMode: true })
-			transformed.pipe(tee1)
-			transformed.pipe(tee2)
-
-			/** prepare update streams */
-			const uploadPromises = [
-				updateS3Lists('list/', tee1),
-				updateS3Lists('owners/', tee2)
-			]
-
-			/** pipe source stream in */
-			stream.pipe(transformed)
-
-			/** wait for streams to complete */
-			await Promise.all([
-				...uploadPromises,
-				finished(transformed)
-			])
-
-
-			cnn.release()
-
-			/** delete the whitelisted table when done */
-			await pool.query(`DROP TABLE "${tablename}"`)
-
-			console.info(checkForManuallyModifiedOwners.name, `dropped table "${tablename}"`)
-		}))
+	for (const { owner } of newWhitelistedOwners.rows) {
+		const tablename = ownerToOwnerTablename(owner)
+		await pool.query(`DROP TABLE "${tablename}"`)
+		console.info(checkForManuallyModifiedOwners.name, `dropped table "${tablename}"`)
 	}
 
 	/** this fn checks internally if it needs updating */

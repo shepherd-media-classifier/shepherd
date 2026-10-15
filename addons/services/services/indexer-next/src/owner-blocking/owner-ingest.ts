@@ -126,8 +126,7 @@ const ingestRangeOrig = async (min: number, max: number) => {
 		JSON.stringify({ ingestedOwners }),
 	)
 
-	// lists get updated in fnOwnerBlocking now
-	/** TEMPORARY UNTIL LIST MIGRATION IS COMPLETE */
+	/** update txt lists */
 	try {
 		if (unannounced.inserts > 0) {
 			const { inserts, owners: insertedOwners } = unannounced
