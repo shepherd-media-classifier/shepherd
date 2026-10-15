@@ -6,7 +6,7 @@ import { ipAllowMiddleware } from './ipAllowLists'
 import { network_EXXX_codes } from '../../../libs/constants'
 import { Socket } from 'net'
 import { addonTxsTableNames } from '../../../libs/utils/addon-tablenames'
-import { GetListPath, getETag, getList, prefetchLists } from './lists'
+import { GetListPath, getETag, getList } from './lists'
 import { networkInterfaces } from 'os'
 import { rangeNameForIp } from '../../../libs/utils/update-range-nodes'
 
@@ -14,8 +14,6 @@ import { rangeNameForIp } from '../../../libs/utils/update-range-nodes'
 const prefix = 'webserver'
 const app = express()
 const port = 80
-
-prefetchLists()
 
 // app.use(cors())
 
@@ -67,6 +65,7 @@ app.get('/addresses.txt', ipAllowMiddleware('txids'), async (req, res) => {
 		res.status(200).end()
 	} catch (err: unknown) {
 		const e = err as Error
+		if (res.headersSent) return console.error(prefix, req.path, `stream ended early ${e.name}:${e.message}`)
 		await slackLog(prefix, '/addresses.txt', `❌ ERROR retrieving! ${e.name}:${e.message}.`)
 		res.status(500).send('internal server error\n')
 	}
@@ -84,6 +83,7 @@ app.get('/blacklist.txt', ipAllowMiddleware('txids'), async (req, res) => {
 		res.status(200).end()
 	} catch (err: unknown) {
 		const e = err as Error
+		if (res.headersSent) return console.error(prefix, req.path, `stream ended early ${e.name}:${e.message}`)
 		await slackLog(prefix, '/blacklist.txt', `❌ ERROR retrieving! ${e.name}:${e.message}.`)
 		res.status(500).send('internal server error\n')
 	}
@@ -102,6 +102,7 @@ app.get('/rangelist.txt', ipAllowMiddleware('ranges'), async (req, res) => {
 		res.status(200).end()
 	} catch (err: unknown) {
 		const e = err as Error
+		if (res.headersSent) return console.error(prefix, req.path, `stream ended early ${e.name}:${e.message}`)
 		await slackLog(prefix, path, `❌ ERROR retrieving! ${e.name}:${e.message}.`)
 		res.status(500).send('internal server error\n')
 	}
@@ -114,8 +115,15 @@ app.head('/reported/txids.txt', ipAllowMiddleware('txids'), async (req, res) => 
 })
 app.get('/reported/txids.txt', ipAllowMiddleware('txids'), async (req, res) => {
 	res.setHeader('Content-Type', 'text/plain')
-	await getList(res, '/reported/txids.txt')
-	res.status(200).end()
+	try {
+		await getList(res, '/reported/txids.txt')
+		res.status(200).end()
+	} catch (err: unknown) {
+		const e = err as Error
+		if (res.headersSent) return console.error(prefix, req.path, `stream ended early ${e.name}:${e.message}`)
+		await slackLog(prefix, '/reported/txids.txt', `❌ ERROR retrieving! ${e.name}:${e.message}.`)
+		res.status(500).send('internal server error\n')
+	}
 })
 
 /** used by shep-v */
@@ -131,6 +139,7 @@ app.get(/^\/range(flagged|owners).txt$/, ipAllowMiddleware('ranges'), async (req
 		res.status(200).end()
 	} catch (err: unknown) {
 		const e = err as Error
+		if (res.headersSent) return console.error(prefix, req.path, `stream ended early ${e.name}:${e.message}`)
 		await slackLog(prefix, path, `❌ ERROR retrieving! ${e.name}:${e.message}.`)
 		res.status(500).send('internal server error\n')
 	}
@@ -152,6 +161,7 @@ addonTxsTableNames().then((tablenames) => {
 				res.status(200).end()
 			} catch (err) {
 				const e = err as Error
+				if (res.headersSent) return console.error(prefix, req.path, `stream ended early ${e.name}:${e.message}`)
 				await slackLog(prefix, routeTxids, `❌ ERROR retrieving! ${e.name}:${e.message}.`)
 				res.status(500).send('internal server error\n')
 			}
@@ -169,6 +179,7 @@ addonTxsTableNames().then((tablenames) => {
 				res.status(200).end()
 			} catch (err) {
 				const e = err as Error
+				if (res.headersSent) return console.error(prefix, req.path, `stream ended early ${e.name}:${e.message}`)
 				await slackLog(prefix, routeRanges, `❌ ERROR retrieving! ${e.name}:${e.message}.`)
 				res.status(500).send('internal server error\n')
 			}
