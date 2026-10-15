@@ -3,7 +3,6 @@ import { slackLog } from './utils/slackLog'
 import { OwnerTableRecord } from '../../types'
 import { getByteRange } from '../../libs/byte-ranges/byteRanges'
 import { GQLEdgeInterface } from 'ar-gql/dist/faces'
-import { updateS3Lists, UpdateItem } from '../../libs/s3-lists/update-lists'
 import { min_data_size } from '../../libs/constants'
 
 
@@ -67,32 +66,17 @@ export const handler = async (event: any) => {
 
 		/** batch insert this pages results */
 		const counts: { [owner: string]: number; total: number } = { total: 0 }
-		let listRecords: UpdateItem[] = []
 		for (const key of Object.keys(records)) {
 			const inserted = await batchInsertFnOwner(records[key], ownerToTablename(key))
-
-			/** add to lists update also */
-			const items = records[key].map<UpdateItem>(({ txid, byte_start, byte_end }) => ({
-				txid,
-				range: [Number(byte_start), Number(byte_end)],
-			}))
-			listRecords.push(...items)
 
 			if (!counts[key]) counts[key] = 0
 			counts[key] += inserted!
 			counts.total += inserted!
 		}
-		/** update s3 lists, but dont create empty files */
-		if (counts.total > 0) {
-			await Promise.all([
-				updateS3Lists('owners/', listRecords),
-				updateS3Lists('list/', listRecords),
-			])
-		}
 
 
 		//@ts-expect-error null is incorrect type, but we just want gc
-		records = null; listRecords = null
+		records = null
 
 		console.info(`completed processing page ${inputs.pageNumber} ${JSON.stringify(counts)}`)
 
