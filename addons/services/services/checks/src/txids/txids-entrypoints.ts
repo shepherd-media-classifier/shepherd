@@ -1,5 +1,6 @@
 import { checkServerTxids } from "./txids-checkHeads"
 import { getBlockedTxids } from "./txids-cached"
+import { checkFreshness } from "./txids-freshness"
 import { ListName } from "../types"
 import { MessageType } from ".."
 import { slackLog } from "../../../../libs/utils/slackLog"
@@ -22,6 +23,7 @@ setInterval(logMemoryUsage, 60000)
 const FLAGGED_INTERVAL = 30_000 // 30 secs 
 const OWNERS_INTERVAL = 300_000 // 5 mins N.B. owners will be large and take hours to complete
 const DNSR_INTERVAL = 600_000 // 10 mins
+const FRESHNESS_INTERVAL = 300_000 // 5 mins
 
 
 /** let the main thread know there's a problem */
@@ -97,6 +99,7 @@ checkTxids('txidowners.txt') //start early
 const addonKeys = (await addonTxsTableNames()).map(t => `${t.split('_')[0]}/txids.txt`) as `${string}/txids.txt`[]
 console.info(JSON.stringify({ addonKeys }))
 addonKeys.map(key => setInterval(() => checkTxids(key), DNSR_INTERVAL))
+setInterval(() => checkFreshness().catch(e => slackLog(checkFreshness.name, `ERROR ${(e as Error).name}:${(e as Error).message}`)), FRESHNESS_INTERVAL)
 
 
 
