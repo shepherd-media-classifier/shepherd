@@ -15,8 +15,6 @@ WORKDIR /app/libs
 RUN npm ci --omit=dev
 # lib function handlers (inlined, imported directly by services)
 COPY ./libFunctions /app/libFunctions
-WORKDIR /app/libFunctions/fnInitLists
-RUN npm ci --omit=dev
 WORKDIR /app/libFunctions/fnOwnerBlocking
 RUN npm ci --omit=dev
 WORKDIR /app/libFunctions/updateTxtLists

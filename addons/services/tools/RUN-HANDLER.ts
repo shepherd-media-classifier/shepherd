@@ -1,14 +1,12 @@
 /**
- * Manually run a lambda handler (fnInitLists or updateTxtLists).
+ * Manually run a lambda handler (updateTxtLists).
  *
  * Usage:
- *   npx tsx tools/run-handler.ts fnInitLists
  *   npx tsx tools/run-handler.ts updateTxtLists
  *
  * Required env vars: DB_HOST, LISTS_BUCKET, REDIS_HOST (+ AWS S3 credentials)
  */
 import '../tests/_import-test-env-vars'
-import { handler as fnInitLists } from '../libFunctions/fnInitLists/index'
 import { handler as updateTxtLists } from '../libFunctions/updateTxtLists/index'
 //make it stop
 import pgClient from '../libs/utils/pgClient'
@@ -17,13 +15,12 @@ import { redis } from '../libs/utils/redis-state'
 
 
 const handlers: Record<string, (event: any) => Promise<any>> = {
-	fnInitLists,
 	updateTxtLists,
 }
 
 const name = process.argv[2]
 if (!name || !handlers[name]) {
-	console.error(`Usage: npx tsx tools/run-handler.ts <${Object.keys(handlers).join('|')}>. n.b. indexer runs fnInitLists on startup`)
+	console.error(`Usage: npx tsx tools/run-handler.ts <${Object.keys(handlers).join('|')}>. n.b. indexer runs updateTxtLists on startup if blacklist.txt is missing`)
 	process.exit(1)
 }
 
