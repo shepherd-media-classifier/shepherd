@@ -4,7 +4,6 @@ import { APIAddonUpdateInput, APIAddonUpdateOutput } from 'shepherd-plugin-inter
 import { z } from 'zod'
 import isEqual from 'lodash/isEqual'
 import { getByteRange as getByteRangeOriginal } from '../../../libs/byte-ranges/byteRanges'
-import { updateS3Lists } from '../../../libs/s3-lists/update-lists'
 import { slackLog } from '../../../libs/utils/slackLog'
 import { lambdaInvokerUpdateTxtLists } from '../../../libs/utils/lambda-invoker'
 
@@ -44,8 +43,8 @@ const AddonHandlerArgsSchema = z.object({
 })
 
 /** addonHandler
- * @description - generic handler for adding/updating txs in the db and s3-lists
- * 		- *** N.B. consideration for removing records from s3-lists is not implemented here ***
+ * @description - generic handler for adding/updating txs in the db and txt lists
+ * 		- *** N.B. consideration for removing records from the lists is not implemented here ***
  * 		- why? e.g. an addon could mistakenly unflag a record that is 404.
  * 		- solution pending. suggest using manual removal method.
  * @param {Object} input - {addonPrefix: string; records: TxRecord[]}
@@ -72,7 +71,7 @@ export const addonHandler = async (
 	 * just take the record
 	 * check if db needs updating
 	 * calc byte-ranges if needed
-	 * run updateS3Lists
+	 * update txt lists
 	 */
 
 	/** pre-process input records */
@@ -143,22 +142,9 @@ export const addonHandler = async (
 		: []
 	console.info(addonHandler.name, `inserted ${inserts.length}/${records.length} records`)
 
-	/** run updateS3Lists. !!only flagged records!! */
+	/** update txt lists. !!only flagged records!! */
 	const flagged = updatedRecords.filter(r => r.flagged === true)
-	if (flagged.length > 0) {
-
-		/** TEMPORARY UNTIL LIST MIGRATION IS COMPLETE */
-		await lambdaInvokerUpdateTxtLists()
-
-		const counts = await updateS3Lists(addonPrefix, flagged.map(r => ({
-			txid: r.txid,
-			range: [Number(r.byte_start), Number(r.byte_end)],
-		})))
-		if (flagged.length !== counts.txids) {
-			slackLog(addonHandler.name, `${flagged.length} flagged records, but only added ${counts.txids} records to the s3-list ${addonPrefix}/txids_*`)
-			throw new Error(`${flagged.length} flagged records, but only added ${counts.txids} records to the s3-list ${addonPrefix}/txids_*`)
-		}
-	}
+	if (flagged.length > 0) await lambdaInvokerUpdateTxtLists()
 
 	return {
 		inserted: inserts, //array of txids
