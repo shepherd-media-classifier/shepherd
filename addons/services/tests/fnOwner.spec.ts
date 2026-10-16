@@ -1,5 +1,5 @@
 import './_import-test-env-vars'
-import { handler } from '../libFunctions/fnOwnerBlocking/index'
+import { blockOwnerPage } from '../libFunctions/fnOwnerBlocking/index'
 import { ownerBlockingEvent, ownerBlockingEventOwners } from './assets/fnOwner-page-event'
 import assert from "node:assert/strict";
 import { after, afterEach, before, beforeEach, describe, it, mock } from 'node:test'
@@ -31,7 +31,7 @@ describe('fnOwnerBlocking tests', () => {
 	it('should process a page of results', async () => {
 		console.info(`NODE_ENV`, process.env.NODE_ENV)
 
-		const result = await handler(ownerBlockingEvent)
+		const result = await blockOwnerPage(ownerBlockingEvent.page as unknown as Parameters<typeof blockOwnerPage>[0], ownerBlockingEvent.pageNumber)
 
 		assert.equal(result.total, 3)
 
