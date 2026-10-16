@@ -69,7 +69,7 @@ const headRequest = async (domain: string, ids: TxidItem, reqId: number) => {
 	})
 }
 
-const newAlarmHandler = async (gw_domain: string, ids: TxidItem, reqId: number) => {
+const newAlarmHandler = async (gw_domain: string, ids: TxidItem, reqId: number, list: ListName) => {
 	try {
 		const { status, headers } = await headRequest(gw_domain, ids, reqId)
 
@@ -107,6 +107,7 @@ const newAlarmHandler = async (gw_domain: string, ids: TxidItem, reqId: number) 
 					details: {
 						status: 'alarm',
 						line: ids.id,
+						list,
 						base32: ids.base32,
 						endpointType: '/TXID',
 						xtrace: traceHeaders,
@@ -201,7 +202,7 @@ export const checkServerTxids = async (gw_domain: string, key: ListName, txids: 
 				/** check blocked */
 				let promises: Promise<void>[] = []
 				for (const ids of blocked) {
-					promises.push(newAlarmHandler(gw_domain, ids, countChecks++))
+					promises.push(newAlarmHandler(gw_domain, ids, countChecks++, key))
 
 					if (promises.length > maxConcurrentRequests) {
 						//let at least one resolve

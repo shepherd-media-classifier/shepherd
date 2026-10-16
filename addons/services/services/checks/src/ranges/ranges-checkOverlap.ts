@@ -134,6 +134,7 @@ export const checkServerRanges = async (item: Http_Api_Node, blockedRanges: Byte
 							details: {
 								status: 'alarm',
 								line: `${blockedRange[0]},${blockedRange[1]}`, //a string is easier as {txid} is just a string
+								list: 'rangelist.txt',
 								endpointType: '/chunk',
 							}
 						}
