@@ -1,4 +1,5 @@
 import { lambdaInvokerUpdateTxtLists } from "../utils/lambda-invoker"
+import { slackLog } from "../utils/slackLog"
 import { keyExists, s3GetTag, updateAddresses } from "./update-addresses"
 
 
@@ -21,11 +22,8 @@ export const initLists = async () => {
 			)
 		}
 
-		/** fresh bucket, create the txt lists */
-		if (!await keyExists('blacklist.txt')) {
-			console.info(`list 'blacklist.txt' does not exist. creating txt lists...`)
-			await lambdaInvokerUpdateTxtLists()
-		}
+		/** rebuild on every start, heals a rebuild lost to a restart mid-ingest. don't block startup on failure */
+		await lambdaInvokerUpdateTxtLists().catch(e => slackLog(initLists.name, `updateTxtLists failed on startup ${(e as Error).name}:${(e as Error).message}`))
 
 	} finally {
 		_inProgess_initLists = false
