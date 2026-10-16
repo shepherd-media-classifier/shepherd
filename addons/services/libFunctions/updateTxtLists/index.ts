@@ -2,6 +2,7 @@ import pool from '../../libs/utils/pgClient'
 import QueryStream from "pg-query-stream"
 import { slackLog } from '../../libs/utils/slackLog'
 import { s3UploadReadable } from '../../libs/utils/s3-services'
+import { redis } from '../../libs/utils/redis-state'
 import { ByteRange, mergeErlangRanges } from "../../libs/s3-lists/merge-ranges"
 import { getAddonTablenames } from './addon-tablenames'
 import { processAddonTable } from './table-processing'
@@ -13,9 +14,7 @@ if (!LISTS_BUCKET) throw new Error('LISTS_BUCKET is not set')
 
 const highWaterMark = 200 // 100/50s, 200/43,46s, 300/47s, 400/47s, 1_000/46s, 10_000/66s
 
-export const handler = async (event: any) => {
-	console.info(JSON.stringify(event, null, 2))
-
+export const buildTxtLists = async () => {
 	const t0 = Date.now()
 
 	/** prepare output streams to s3 */
@@ -182,4 +181,27 @@ const populateReportedLists = async () => {
 	await s3Txids.promise
 
 	console.info('reported txids populated')
+}
+
+
+const TXT_LISTS_LOCK = 'updateTxtLists-lock'
+const TXT_LISTS_REQUESTS = 'updateTxtLists-requests'
+const TXT_LISTS_LOCK_TTL = 900_000 //fixed, well above a normal run, so a hung run can't hold the lock forever
+
+/**
+ * Dedicated function for updateTxtLists calls, shared across services via redis.
+ * Every call bumps the request counter. Whoever holds the lock reruns updateTxtLists until no new requests arrived during its run.
+ */
+export const updateTxtLists = async () => {
+	await redis.incr(TXT_LISTS_REQUESTS)
+	while (await redis.set(TXT_LISTS_LOCK, Date.now(), 'PX', TXT_LISTS_LOCK_TTL, 'NX')) {
+		const seen = await redis.get(TXT_LISTS_REQUESTS)
+		try {
+			console.info('updateTxtLists', `returned ${await buildTxtLists()}`)
+		} finally {
+			await redis.del(TXT_LISTS_LOCK)
+		}
+		if (await redis.get(TXT_LISTS_REQUESTS) === seen) return
+	}
+	console.info(updateTxtLists.name, 'already running, request queued')
 }

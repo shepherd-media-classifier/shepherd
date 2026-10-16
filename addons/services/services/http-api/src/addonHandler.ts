@@ -5,7 +5,7 @@ import { z } from 'zod'
 import isEqual from 'lodash/isEqual'
 import { getByteRange as getByteRangeOriginal } from '../../../libs/byte-ranges/byteRanges'
 import { slackLog } from '../../../libs/utils/slackLog'
-import { lambdaInvokerUpdateTxtLists } from '../../../libs/utils/lambda-invoker'
+import { updateTxtLists } from '../../../libFunctions/updateTxtLists/index'
 
 
 const knex = knexCreate()
@@ -144,7 +144,7 @@ export const addonHandler = async (
 
 	/** update txt lists. !!only flagged records!! */
 	const flagged = updatedRecords.filter(r => r.flagged === true)
-	if (flagged.length > 0) await lambdaInvokerUpdateTxtLists()
+	if (flagged.length > 0) await updateTxtLists()
 
 	return {
 		inserted: inserts, //array of txids

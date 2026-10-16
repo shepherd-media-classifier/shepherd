@@ -1,4 +1,4 @@
-import { lambdaInvokerUpdateTxtLists } from "../utils/lambda-invoker"
+import { updateTxtLists } from "../../libFunctions/updateTxtLists/index"
 import { slackLog } from "../utils/slackLog"
 import { keyExists, s3GetTag, updateAddresses } from "./update-addresses"
 
@@ -23,7 +23,7 @@ export const initLists = async () => {
 		}
 
 		/** rebuild on every start, heals a rebuild lost to a restart mid-ingest. don't block startup on failure */
-		await lambdaInvokerUpdateTxtLists().catch(e => slackLog(initLists.name, `updateTxtLists failed on startup ${(e as Error).name}:${(e as Error).message}`))
+		await updateTxtLists().catch(e => slackLog(initLists.name, `updateTxtLists failed on startup ${(e as Error).name}:${(e as Error).message}`))
 
 	} finally {
 		_inProgess_initLists = false

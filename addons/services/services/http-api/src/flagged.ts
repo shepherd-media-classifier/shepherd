@@ -7,7 +7,7 @@ import { queueBlockOwner, gql } from '../../../libs/block-owner/owner-blocking'
 import { updateAddresses } from '../../../libs/s3-lists/update-addresses'
 import { OwnersListRecord } from '../../../types'
 import { mergeRulesObject } from './utils/merge-rules-object'
-import { lambdaInvokerUpdateTxtLists } from '../../../libs/utils/lambda-invoker'
+import { updateTxtLists } from '../../../libFunctions/updateTxtLists/index'
 
 
 const knex = dbConnection()
@@ -75,7 +75,7 @@ export const processFlagged = async (
 
 	/** 3. update txt lists */
 	try {
-		await lambdaInvokerUpdateTxtLists()
+		await updateTxtLists()
 	} catch (e) {
 		await slackLog(txid, `ERROR in flagged.ts updateTxtLists failed '${(e as Error).message}'. :warning::warning: NOT ROLLING BACK! :warning::warning: may need to run updateTxtLists manually.`, e)
 	}

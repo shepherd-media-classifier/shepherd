@@ -1,7 +1,7 @@
 import { slackLog } from '../../../../libs/utils/slackLog'
 import { checkForManuallyModifiedOwners } from './check-manually-added-owners'
 import { processBlockedOwnersQueue } from '../../../../libs/block-owner/owner-blocking'
-import { lambdaInvokerUpdateTxtLists } from '../../../../libs/utils/lambda-invoker'
+import { updateTxtLists } from '../../../../libFunctions/updateTxtLists/index'
 
 
 if (!process.env.LISTS_BUCKET) throw new Error('missing env var, LISTS_BUCKET')
@@ -20,7 +20,7 @@ export const ownerChecks = async () => {
 
 			/** update txt lists */
 			if (queueProcessing || tempWhitelisted) {
-				await lambdaInvokerUpdateTxtLists()
+				await updateTxtLists()
 			}
 
 			if (!queueProcessing) {
