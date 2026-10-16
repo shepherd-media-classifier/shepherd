@@ -1,9 +1,9 @@
 import { arGql } from 'ar-gql'
-import { handler as fnOwnerBlockingHandler } from '../../../../libFunctions/fnOwnerBlocking/index'
+import { blockOwnerPage } from '../../../../libFunctions/fnOwnerBlocking/index'
 import pool from '../../../../libs/utils/pgClient'
 import { s3GetObject, s3HeadObject } from '../../../../libs/utils/s3-services'
 import { slackLog } from '../../../../libs/utils/slackLog'
-import { lambdaInvokerUpdateTxtLists } from '../../../../libs/utils/lambda-invoker'
+import { updateTxtLists } from '../../../../libFunctions/updateTxtLists/index'
 import { GQLError } from 'ar-gql/dist/faces'
 import { gqlHeight as gqlHeightOrig } from '../index-by-height/gql-height'
 
@@ -107,17 +107,16 @@ const ingestRangeOrig = async (min: number, max: number) => {
 		const pageNumber = ++counts.page
 		console.info(blockOwnerIngest.name, 'processing page', pageNumber)
 
-		/** invoke handler directly */
-		const lambdaCounts: { [owner: string]: number; total: number } = await fnOwnerBlockingHandler({ page, pageNumber })
-		for (const owner in lambdaCounts) {
+		const pageCounts: { [owner: string]: number; total: number } = await blockOwnerPage(page, pageNumber)
+		for (const owner in pageCounts) {
 			if (owner === 'total') continue
-			ingestedOwners[owner] = (ingestedOwners[owner] || 0) + lambdaCounts[owner]
-			unannounced.owners[owner] = (unannounced.owners[owner] || 0) + lambdaCounts[owner]
+			ingestedOwners[owner] = (ingestedOwners[owner] || 0) + pageCounts[owner]
+			unannounced.owners[owner] = (unannounced.owners[owner] || 0) + pageCounts[owner]
 		}
 
 		counts.items += page.length
-		counts.inserts += lambdaCounts.total
-		unannounced.inserts += lambdaCounts.total
+		counts.inserts += pageCounts.total
+		unannounced.inserts += pageCounts.total
 	})// end gql.all
 
 	/** output stats for this run */
@@ -131,7 +130,7 @@ const ingestRangeOrig = async (min: number, max: number) => {
 		if (unannounced.inserts > 0) {
 			const { inserts, owners: insertedOwners } = unannounced
 			unannounced = { inserts: 0, owners: {} }
-			await lambdaInvokerUpdateTxtLists()
+			await updateTxtLists()
 			slackLog(blockOwnerIngest.name, `added ${inserts} items from owners:`, JSON.stringify(insertedOwners))
 		}
 	} catch (e) {

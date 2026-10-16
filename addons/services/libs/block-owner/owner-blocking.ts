@@ -1,7 +1,7 @@
 import { createOwnerTable } from './owner-table-utils'
 import { arGql } from 'ar-gql'
 import { GQLEdgeInterface, GQLError } from 'ar-gql/dist/faces'
-import { handler as fnOwnerBlockingHandler } from '../../libFunctions/fnOwnerBlocking/index'
+import { blockOwnerPage } from '../../libFunctions/fnOwnerBlocking/index'
 import pool from '../utils/pgClient'
 import { slackLog } from '../utils/slackLog'
 import { readBlockOwnerQueue, updateBlockOwnerQueue } from '../utils/redis-state'
@@ -93,7 +93,7 @@ const blockOwnerHistory = async (owner: string, method: 'auto' | 'manual') => {
 	 * 1. infractions table should already exist
 	 * 2. create owner table
 	 * 3. gql all txids
-	 * 4. send pages to lambdas (calc ranges, build records, insert to owner table)
+	 * 4. process pages (calc ranges, build records, insert to owner table)
 	 */
 
 	/** arweave.net `owners:` only matches native addresses for non-RSA signers */
@@ -148,18 +148,18 @@ const blockOwnerHistory = async (owner: string, method: 'auto' | 'manual') => {
 	const counts = { page: 0, items: 0, inserts: 0 }
 
 	const promises: Promise<void>[] = []
-	const lambdaRetry = async (page: GQLEdgeInterface[], pageNumber: number) => {
+	const pageRetry = async (page: GQLEdgeInterface[], pageNumber: number) => {
 		while (true) {
 			try {
-				const lambdaCounts: { [owner: string]: number; total: number } = await fnOwnerBlockingHandler({ page, pageNumber })
-				counts.inserts += lambdaCounts.total
+				const pageCounts: { [owner: string]: number; total: number } = await blockOwnerPage(page, pageNumber)
+				counts.inserts += pageCounts.total
 
 				console.info(blockOwnerHistory.name, owner, 'processed page', pageNumber)
 				break;
 			} catch (err: unknown) {
 				console.debug(blockOwnerHistory.name, err)
 				const e = err as Error
-				slackLog(blockOwnerHistory.name, `HANDLER ERROR ${e.name}:${e.message}. retrying after 10 seconds`, JSON.stringify(e))
+				slackLog(blockOwnerHistory.name, `PAGE ERROR ${e.name}:${e.message}. retrying after 10 seconds`, JSON.stringify(e))
 				await sleep(10_000)
 				continue;
 			}
@@ -180,7 +180,7 @@ const blockOwnerHistory = async (owner: string, method: 'auto' | 'manual') => {
 			if (page && page.length) {
 				cursor = page[page.length - 1]!.cursor
 
-				promises.push(limit(lambdaRetry, page, counts.page))
+				promises.push(limit(pageRetry, page, counts.page))
 			}
 
 		} catch (err: unknown) {
