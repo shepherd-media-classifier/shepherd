@@ -1,4 +1,5 @@
 import { checkServerRanges } from "./ranges-checkOverlap"
+import { getBlockedRanges } from "./ranges-cachedBlocked"
 import { MessageType } from '..'
 import { slackLog } from "../../../../libs/utils/slackLog"
 import { rangeAllowed } from "../../../../libs/utils/update-range-nodes"
@@ -71,8 +72,11 @@ const checkRanges = async () => {
 	const d0 = Date.now()
 	try {
 
-		await Promise.all(rangeItems.map(async item => checkServerRanges(item)))
+		const blockedRanges = await getBlockedRanges()
+		await Promise.all(rangeItems.map(async item => checkServerRanges(item, blockedRanges)))
 
+	} catch (e) {
+		await slackLog(checkRanges.name, `could not load blocked ranges ${(e as Error).name}:${(e as Error).message}`)
 	} finally {
 		delete _running['rangechecks']
 	}

@@ -1,12 +1,11 @@
-import { getBlockedTxids } from "./txids-cached"
 import { Semaphore } from 'await-semaphore'
 import { filterPendingOnly } from "../pending-promises"
 import { performance } from 'perf_hooks'
 import { checkReachable } from "../checkReachable"
 import { setUnreachable, unreachableTimedout } from '../event-unreachable'
-import { FolderName } from "../types"
+import { ListName, TxidItem } from "../types"
 import { slackLog } from "../../../../libs/utils/slackLog"
-import { TxidItem } from '../../../../libs/s3-lists/ram-lists'
+import { idToBase32 } from '../../../../libs/utils/id-to-base32'
 import { Agent, request } from 'https'
 import { MessageType } from ".."
 import { getServerAlarmsIPC } from "../ipc-getAlarms"
@@ -70,7 +69,7 @@ const headRequest = async (domain: string, ids: TxidItem, reqId: number) => {
 	})
 }
 
-const newAlarmHandler = async (gw_domain: string, ids: TxidItem, reqId: number) => {
+const newAlarmHandler = async (gw_domain: string, ids: TxidItem, reqId: number, list: ListName) => {
 	try {
 		const { status, headers } = await headRequest(gw_domain, ids, reqId)
 
@@ -108,6 +107,7 @@ const newAlarmHandler = async (gw_domain: string, ids: TxidItem, reqId: number) 
 					details: {
 						status: 'alarm',
 						line: ids.id,
+						list,
 						base32: ids.base32,
 						endpointType: '/TXID',
 						xtrace: traceHeaders,
@@ -154,7 +154,7 @@ const alarmOkHandler = async (gw_domain: string, ids: TxidItem, reqId: number) =
 }
 
 let _sliceStart: { [key: string]: number } = {} // just keep going around even after errors
-export const checkServerTxids = async (gw_domain: string, key: FolderName) => {
+export const checkServerTxids = async (gw_domain: string, key: ListName, txids: string[]) => {
 	//sanity
 	if (gw_domain.startsWith('https://')) throw new Error(`invalid format. gw_domain cannot start with https:// => ${gw_domain}`)
 
@@ -174,13 +174,10 @@ export const checkServerTxids = async (gw_domain: string, key: FolderName) => {
 	}
 
 	try {
-		const blockedTxids = await getBlockedTxids(key)
 		const t0 = performance.now()
+		console.debug('DEBUG', `txids init ${key} ${txids.length}`)
 
-		const debugTxids = blockedTxids!.getTxids()
-		console.debug('DEBUG', `txids init ${key} ${debugTxids.length}`)
-
-		let blocked = blockedTxids!.getTxids().slice(_sliceStart[key], checksPerPeriod)
+		let blocked = txids.slice(_sliceStart[key], _sliceStart[key] + checksPerPeriod).map(id => ({ id, base32: idToBase32(id) }))
 		let countChecks = _sliceStart[key]
 		do {
 			const p0 = performance.now()
@@ -205,7 +202,7 @@ export const checkServerTxids = async (gw_domain: string, key: FolderName) => {
 				/** check blocked */
 				let promises: Promise<void>[] = []
 				for (const ids of blocked) {
-					promises.push(newAlarmHandler(gw_domain, ids, countChecks++))
+					promises.push(newAlarmHandler(gw_domain, ids, countChecks++, key))
 
 					if (promises.length > maxConcurrentRequests) {
 						//let at least one resolve
@@ -232,10 +229,9 @@ export const checkServerTxids = async (gw_domain: string, key: FolderName) => {
 			/* prepare for next run */
 			_sliceStart[key] += checksPerPeriod
 
-			const debugTxids = blockedTxids!.getTxids()
-			console.debug('DEBUG', `txids slice ${key} ${debugTxids.length}`)
+			console.debug('DEBUG', `txids slice ${key} ${txids.length}`)
 
-			blocked = blockedTxids!.getTxids().slice(_sliceStart[key], _sliceStart[key] + checksPerPeriod)
+			blocked = txids.slice(_sliceStart[key], _sliceStart[key] + checksPerPeriod).map(id => ({ id, base32: idToBase32(id) }))
 
 			if (blocked.length > 0) {
 				const waitTime = Math.max(0, Math.floor(avoidRatelimit - (performance.now() - p0)))

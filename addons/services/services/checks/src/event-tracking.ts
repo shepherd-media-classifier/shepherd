@@ -7,6 +7,7 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
 interface NotBlockEventDetails {
 	line: string //key: id or range
+	list?: string //source list file
 	status: ('alarm' | 'ok')
 	endpointType: '/TXID' | '/chunk'
 	/** below irrelevent for dsr range checks */
@@ -132,14 +133,15 @@ export const alertStateCronjob = () => {
 			const createServerLine = () => {
 				let serverLine = ''
 				const startDatestring = new Date(startStamp).toUTCString()
+				const source = `\`${line}\`${details.list ? ` (${details.list})` : ''}`
 				if (status === 'ok') {
 					const d = endStamp! - startStamp
 					const dMins = (d / 60_000).toFixed(0)
 					const dSecs = ((d % 60_000) / 1000).toFixed(0)
 					const endDateString = new Date(endStamp!).toUTCString()
-					serverLine += `🟢 OK. Alarm duration ${dMins}m ${dSecs}s. \`${endpointType}\` start:"${startDatestring}", end:"${endDateString}".`
+					serverLine += `🟢 OK. Alarm duration ${dMins}m ${dSecs}s. \`${endpointType}\` ${source} start:"${startDatestring}", end:"${endDateString}".`
 				} else { /* status === 'alarm */
-					serverLine += `🔴 ALARM. \`${endpointType}\` start:"${startDatestring}".`
+					serverLine += `🔴 ALARM. \`${endpointType}\` ${source} start:"${startDatestring}".`
 				}
 				if (details.contentLength || details.xtrace || details.age) {
 					const { xtrace, age, httpStatus, contentLength } = details
@@ -220,10 +222,11 @@ const processNodeAlerts = (nodeAlerts: { [server: string]: NotBlockState }) => {
 
 		/** first check if it's a new alarm */
 		if (!_summarizedNodeStates[server]) {
-			const earliestStart = alarmStates.reduce((prev, curr) => curr.startStamp < prev.startStamp ? curr : prev, { startStamp: Infinity } as NotBlockStateDetails).startStamp
+			const earliest = alarmStates.reduce((prev, curr) => curr.startStamp < prev.startStamp ? curr : prev, { startStamp: Infinity } as NotBlockStateDetails)
+			const earliestStart = earliest.startStamp
 			_summarizedNodeStates[server] = { start: earliestStart }
 
-			const serverMsg = `🔴 ALARM, serving censored content:  \`${serverName} ${server}\`, started: ${new Date(earliestStart).toUTCString()}. Try: stop node, delete ar_tx_blacklist folder, and restart.`
+			const serverMsg = `🔴 ALARM, serving censored content:  \`${serverName} ${server}\`, range \`${earliest.line}\`${earliest.list ? ` (${earliest.list})` : ''}, started: ${new Date(earliestStart).toUTCString()}. Try: stop node, delete ar_tx_blacklist folder, and restart.`
 			_slackLoggerNoFormatting(serverMsg, process.env.SLACK_PROBE)
 			continue;
 		}

@@ -3,20 +3,15 @@ import { slackLog } from './utils/slackLog'
 import { OwnerTableRecord } from '../../types'
 import { getByteRange } from '../../libs/byte-ranges/byteRanges'
 import { GQLEdgeInterface } from 'ar-gql/dist/faces'
-import { updateS3Lists, UpdateItem } from '../../libs/s3-lists/update-lists'
 import { min_data_size } from '../../libs/constants'
 
 
-/** the handler will receive 1 page of blocked wallet results. 
+/** receives 1 page of blocked wallet results.
  * potentially for different wallets, but at scale only from 1 wallet.
  */
-export const handler = async (event: any) => {
+export const blockOwnerPage = async (page: GQLEdgeInterface[], pageNumber: number) => {
 	try {
-		const inputs = event as { page: GQLEdgeInterface[], pageNumber: number }
-		if (!inputs.page || !Array.isArray(inputs.page) || inputs.page.length === 0) {
-			throw new Error('missing inputs. should have { "page": "GQLEdgeInterface[non-zero]", "pageNumber": "number" }')
-		}
-		console.info(`processing page ${inputs.pageNumber}, ${inputs.page.length} items`)
+		console.info(`processing page ${pageNumber}, ${page.length} items`)
 
 		/** new plan:
 		 * receive page of gql nodes for different blocked wallets
@@ -27,7 +22,7 @@ export const handler = async (event: any) => {
 
 		let records: { [owner: string]: OwnerTableRecord[] } = {}
 
-		await Promise.all(inputs.page.map(async ({ node }) => {
+		await Promise.all(page.map(async ({ node }) => {
 
 			/** skip small files */
 			if (node.data.size !== null && +node.data.size < min_data_size) {
@@ -67,39 +62,24 @@ export const handler = async (event: any) => {
 
 		/** batch insert this pages results */
 		const counts: { [owner: string]: number; total: number } = { total: 0 }
-		let listRecords: UpdateItem[] = []
 		for (const key of Object.keys(records)) {
 			const inserted = await batchInsertFnOwner(records[key], ownerToTablename(key))
-
-			/** add to lists update also */
-			const items = records[key].map<UpdateItem>(({ txid, byte_start, byte_end }) => ({
-				txid,
-				range: [Number(byte_start), Number(byte_end)],
-			}))
-			listRecords.push(...items)
 
 			if (!counts[key]) counts[key] = 0
 			counts[key] += inserted!
 			counts.total += inserted!
 		}
-		/** update s3 lists, but dont create empty files */
-		if (counts.total > 0) {
-			await Promise.all([
-				updateS3Lists('owners/', listRecords),
-				updateS3Lists('list/', listRecords),
-			])
-		}
 
 
 		//@ts-expect-error null is incorrect type, but we just want gc
-		records = null; listRecords = null
+		records = null
 
-		console.info(`completed processing page ${inputs.pageNumber} ${JSON.stringify(counts)}`)
+		console.info(`completed processing page ${pageNumber} ${JSON.stringify(counts)}`)
 
 		return counts
 	} catch (err: unknown) {
 		const e = err as Error
-		await slackLog('fnOwner.handler', `Fatal error ❌ ${e.name}:${e.message}`, JSON.stringify(e))
+		await slackLog(blockOwnerPage.name, `Fatal error ❌ ${e.name}:${e.message}`, JSON.stringify(e))
 		throw e
 	}
 }

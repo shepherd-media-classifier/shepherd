@@ -2,7 +2,6 @@ import pool from '../../libs/utils/pgClient'
 import QueryStream from "pg-query-stream"
 import { slackLog } from '../../libs/utils/slackLog'
 import { s3UploadReadable } from '../../libs/utils/s3-services'
-import { ByteRange } from '../../libs/s3-lists/merge-ranges'
 
 // type WriteableWithPromise = ReturnType<typeof s3UploadReadable>
 
@@ -11,10 +10,9 @@ export const processAddonTable = async (config: {
 	LISTS_BUCKET: string,
 	tablename: string,
 	highWaterMark: number,
-	ranges: ByteRange[], //all get merged
 }) => {
 
-	const { LISTS_BUCKET, tablename, highWaterMark, ranges } = config
+	const { LISTS_BUCKET, tablename, highWaterMark } = config
 	const prefix = tablename.split('_')[0] //e.g. my_txs => my
 	console.info(tablename, 'stream starting')
 
@@ -45,7 +43,6 @@ export const processAddonTable = async (config: {
 				continue;
 			}
 			s3AddonRanges.write(`${row.byte_start},${row.byte_end}\n`)
-			ranges.push([+row.byte_start, +row.byte_end])
 		}
 
 	} finally {

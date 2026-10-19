@@ -4,11 +4,10 @@ import { slackLog } from '../../../libs/utils/slackLog'
 import { ownerToInfractionsTablename } from '../../../libs/block-owner/owner-table-utils'
 import { infraction_limit } from '../../../libs/constants'
 import { queueBlockOwner, gql } from '../../../libs/block-owner/owner-blocking'
-import { UpdateItem, updateS3Lists } from '../../../libs/s3-lists/update-lists'
 import { updateAddresses } from '../../../libs/s3-lists/update-addresses'
 import { OwnersListRecord } from '../../../types'
 import { mergeRulesObject } from './utils/merge-rules-object'
-import { lambdaInvokerUpdateTxtLists } from '../../../libs/utils/lambda-invoker'
+import { updateTxtLists } from '../../../libFunctions/updateTxtLists/index'
 
 
 const knex = dbConnection()
@@ -45,7 +44,7 @@ export const processFlagged = async (
 	 * - update owners_list
 	 * - ignore whitelisted owners
 	 * - schedule blocking if necessary
-	 * 3. update s3
+	 * 3. update txt lists
 	*/
 
 	const owner = record.owner!
@@ -67,11 +66,6 @@ export const processFlagged = async (
 			throw new Error(`Could not insert ${txid} into txs`) //cause a rollback
 		}
 
-		/** update s3 lists: `list/` & `flagged/` */
-		const s3Record: UpdateItem = { txid, range: [Number(completedRecord.byte_start), Number(completedRecord.byte_end)] }
-		await updateS3Lists('list/', [s3Record])
-		await updateS3Lists('flagged/', [s3Record])
-
 		await trx.commit()
 	} catch (err: unknown) {
 		await trx.rollback()
@@ -79,9 +73,9 @@ export const processFlagged = async (
 		throw err // this will cause service to fatally crash!
 	}
 
-	/** TEMPORARY UNTIL LIST MIGRATION IS COMPLETE */
+	/** 3. update txt lists */
 	try {
-		await lambdaInvokerUpdateTxtLists()
+		await updateTxtLists()
 	} catch (e) {
 		await slackLog(txid, `ERROR in flagged.ts updateTxtLists failed '${(e as Error).message}'. :warning::warning: NOT ROLLING BACK! :warning::warning: may need to run updateTxtLists manually.`, e)
 	}
