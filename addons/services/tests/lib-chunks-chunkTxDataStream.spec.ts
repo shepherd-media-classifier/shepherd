@@ -108,20 +108,7 @@ describe('chunkTxDataStream', () => {
 
 	it('should handle 404 errors for nonexistent data', async () => {
 		const noDataId = 'kbn9dYQayN0D7BNsblAnrnlQnQtbXOA6foVUkk5ZHgw' //13 byte
-		const { stream } = await chunkTxDataStream(noDataId, null, undefined, (new AbortController()).signal)
-
-		try {
-			for await (const chunk of stream) {
-				assert.fail('should not have any data')
-			}
-		} catch (e) {
-			if (e instanceof Error) {
-				assert.ok(e.message.includes('ran out of nodes to try'), 'expected ran out of nodes to try error')
-				assert.ok(e.message.includes('404'), 'expected 404 error')
-			} else {
-				assert.fail('expected error')
-			}
-		}
+		await assert.rejects(chunkTxDataStream(noDataId, null, undefined, (new AbortController()).signal), /status 404/)
 	})
 
 	skip('should download a 700mb file using concurrent chunks', async () => {
