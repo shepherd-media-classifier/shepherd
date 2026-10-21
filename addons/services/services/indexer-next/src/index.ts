@@ -1,6 +1,8 @@
 import { slackLog } from '../../../libs/utils/slackLog'
 import knexCreate from '../../../libs/utils/knexCreate'
 import { initLists } from '../../../libs/s3-lists/update-lists'
+import { getOwnersTablenames } from '../../../libs/block-owner/owner-table-utils'
+import { s3GetObject } from '../../../libs/utils/s3-services'
 import { ownerIngestLoop } from './owner-blocking/owner-ingest'
 import { tipLoop } from './index-by-height'
 import { ownerChecks } from './owner-blocking'
@@ -46,8 +48,17 @@ while (true) {
 			console.info('migrate >>', 'Database upgrade not required', batchNo, logs)
 		}
 
-		/** initialise lists if necessary */
-		await initLists()
+		/** initialise lists if necessary, i.e. missing or behind due to error */
+		let ownerRows = 0
+		for (const t of await getOwnersTablenames()) ownerRows += Number((await knex(t).count({ n: '*' }))[0].n)
+		const flaggedRows = Number((await knex('txs').where({ flagged: true }).count({ n: '*' }))[0].n)
+		const [flaggedLines, ownerLines] = await Promise.all(['txidflagged.txt', 'txidowners.txt'].map(key =>
+			s3GetObject(process.env.LISTS_BUCKET!, key).then(text => text.split('\n').length - 1, () => -1)
+		))
+		if (flaggedLines !== flaggedRows || ownerLines !== ownerRows)
+			await initLists()
+		else
+			console.info('lists match the db, not rebuilding', JSON.stringify({ flaggedRows, ownerRows }))
 
 		/** start ingest loops. n.b. never return, have own catch loops */
 		ownerIngestLoop()
