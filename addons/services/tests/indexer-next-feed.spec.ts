@@ -14,21 +14,25 @@ import { verifyReport } from '../services/indexer-next/src/feed/verify'
 type GQLEdgeInterface = Parameters<typeof ingressHandler>[0]['metas'][number]
 
 
-/** a real report, signed by a HyperBEAM node (throwaway wallet) and captured on the wire */
+/** a real report, signed by a HyperBEAM node (throwaway wallet) and captured on the wire. legacy `keyid="publickey:<key>"` */
 const captured = JSON.parse(readFileSync(new URL('./assets/feed-report.json', import.meta.url), 'utf8'))
 const capturedBody = Buffer.from(captured.body, 'base64')
 const capturedSigner = 'JcqPhOP1dNWcgISI-Y62vZz3kt2FKIN6_D7FUmWWFGA'
 const capturedItemId = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
 
-/** sign a report as HyperBEAM's httpsig@1.0 does */
+/** the same body, signed by a newer HyperBEAM node: `keyid="did:pkh:arweave:7wIU:<address>";public-key="<key>"` */
+const capturedDidPkh = JSON.parse(readFileSync(new URL('./assets/feed-report-did-pkh.json', import.meta.url), 'utf8'))
+const capturedDidPkhSigner = 'nbzdy5BxsiSUrzb1oK476Pr5RVYomr2H_qktvY7qPAI'
+
+/** sign a report as HyperBEAM's httpsig@1.0 does. `keyid` defaults to the node's `did:pkh` committer */
 const testNode = () => {
 	const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 })
 	const n = Buffer.from(publicKey.export({ format: 'jwk' }).n!, 'base64url')
 	return { privateKey, address: createHash('sha256').update(n).digest('base64url'), n }
 }
-const signReport = (body: string, { privateKey, n }: { privateKey: KeyObject, n: Buffer }) => {
+const signReport = (body: string, { privateKey, n, address }: { privateKey: KeyObject, n: Buffer, address: string }, keyid = `did:pkh:arweave:7wIU:${address}`) => {
 	const digest = `sha-256=:${createHash('sha256').update(body).digest('base64')}:`
-	const params = `("content-digest" "content-type");alg="rsa-pss-sha512";keyid="publickey:${n.toString('base64')}"`
+	const params = `("content-digest" "content-type");alg="rsa-pss-sha512";keyid="${keyid}";public-key="${n.toString('base64url')}"`
 	const base = `"content-digest": ${digest}\n"content-type": application/json\n"@signature-params": ${params}`
 	const signature = sign('sha512', Buffer.from(base), { key: privateKey, padding: constants.RSA_PKCS1_PSS_PADDING, saltLength: 64 })
 	return {
@@ -52,6 +56,17 @@ describe('feed verify', () => {
 
 	it('should verify a real HyperBEAM report and return its signer', () => {
 		assert.equal(verifyReport(captured.headers, capturedBody), capturedSigner)
+	})
+
+	it('should verify a real did:pkh HyperBEAM report and return its signer', () => {
+		assert.equal(verifyReport(capturedDidPkh.headers, Buffer.from(capturedDidPkh.body, 'base64')), capturedDidPkhSigner)
+	})
+
+	it('should reject a did:pkh keyid that is not the committer of public-key', () => {
+		const body = JSON.stringify({ items: [] })
+		const [node, other] = [testNode(), testNode()]
+		assert.equal(verifyReport(signReport(body, node), Buffer.from(body)), node.address)
+		assert.throws(() => verifyReport(signReport(body, node, `did:pkh:arweave:7wIU:${other.address}`), Buffer.from(body)), /keyid is not the committer/)
 	})
 
 	it('should reject a report with one body byte changed', () => {
